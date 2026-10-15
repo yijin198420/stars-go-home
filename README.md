@@ -4,7 +4,7 @@
 
 ## 在线体验
 
-- GitHub Pages：发布完成后启用
+- GitHub Pages：https://yijin198420.github.io/stars-go-home/
 - 正式站点：https://stars-go-home-night.yijin198420.chatgpt.site/game/
 
 ## 特点
@@ -24,4 +24,3 @@ python3 -m http.server 8080
 ```
 
 然后访问 `http://localhost:8080/`。
-
