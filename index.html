@@ -1,0 +1,2680 @@
+<!DOCTYPE html>
+<!-- 星星回家啦 · 独立网页游戏 -->
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#071128">
+<meta name="color-scheme" content="dark">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="星星回家啦">
+<meta name="description" content="牵一颗星回到夜空，留下一幅只属于今晚的水粉星空。">
+<link rel="manifest" href="./manifest.webmanifest">
+<link rel="icon" type="image/png" href="./assets/app-icon-192.png">
+<link rel="apple-touch-icon" href="./assets/app-icon-192.png">
+<title>星星回家啦 · 今晚的星空</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #05070F;
+    font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+    color: #E9EAF7;
+    display: flex; align-items: center; justify-content: center;
+    min-height: 100vh; gap: 40px; padding: 20px;
+  }
+  /* 模拟手机屏幕：随浏览器窗口自适应，保证月亮船始终可见 */
+  .phone {
+    position: relative;
+    width: min(390px, calc(100vw - 44px));
+    height: min(760px, calc(100vh - 44px));
+    border-radius: 36px; overflow: hidden;
+    border: 1px solid rgba(191,198,238,0.2);
+    box-shadow: 0 0 60px rgba(80,90,180,0.15);
+    background: linear-gradient(180deg,#0B1026 0%,#151A3E 45%,#2E2A5E 100%);
+    flex-shrink: 0;
+  }
+  /* 窗口不够宽时收起右侧说明栏，游戏屏独占空间 */
+  @media (max-width: 900px) {
+    body { gap: 0; }
+    .side { display: none; }
+  }
+  .phone canvas { position: absolute; inset: 0; width: 100%; height: 100%; touch-action: none; cursor: grab; }
+  .screen { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 40px; text-align: center; z-index: 5; }
+  .title { font-size: 26px; letter-spacing: 6px; color: #FFF6DC; text-shadow: 0 0 18px rgba(255,214,107,.35); margin-bottom: 14px; }
+  /* 开始屏的月亮与流星 */
+  .moon-area { display: flex; flex-direction: column; align-items: center; margin-bottom: 26px; }
+  .moon-area canvas { position: static; inset: auto; width: 66px; height: 66px; }
+  .moon-name { margin-top: 8px; font-size: 12px; letter-spacing: 3px; color: rgba(233,234,247,.45); }
+  /* 分享卡片浮层 */
+  .share-layer {
+    position: absolute; inset: 0; z-index: 14; display: flex; align-items: center; justify-content: center;
+    background:radial-gradient(circle at 50% 34%,rgba(67,78,126,.15),transparent 42%),rgba(3,5,14,.92); opacity: 0; visibility: hidden; pointer-events:none; transition: opacity .6s ease, visibility .6s;
+  }
+  .share-layer.show { opacity: 1; visibility: visible; pointer-events:auto; }
+  .share-inner { display: flex; flex-direction: column; align-items: center; }
+  .share-inner canvas { position:static; inset:auto; width:260px; height:346px; border-radius:2px; cursor:default; box-shadow:0 24px 58px rgba(1,3,11,.52),0 0 0 1px rgba(229,207,147,.12); }
+  .share-tip { width: 280px; margin-top: 12px; font-size: 11px; line-height: 1.7; color: rgba(233,234,247,.45); letter-spacing:.25px; }
+  .share-close {
+    margin-top: 12px; padding: 7px 18px; border: 1px solid rgba(255,214,107,.35); border-radius: 999px;
+    font-size: 12.5px; letter-spacing: 2px; color: rgba(255,214,107,.7); cursor: pointer;
+  }
+  .meteor {
+    position: absolute; top: 12%; left: -70px; width: 65px; height: 2px; border-radius: 2px;
+    background: linear-gradient(90deg, rgba(255,255,255,0), rgba(255,255,255,.9));
+    transform: rotate(-18deg); opacity: 0; pointer-events: none;
+    animation: meteor 13s ease-in 4s infinite;
+  }
+  @keyframes meteor {
+    0% { left: -70px; top: 12%; opacity: 0; }
+    3% { opacity: .9; }
+    9% { left: 110%; top: 30%; opacity: 0; }
+    100% { left: 110%; top: 30%; opacity: 0; }
+  }
+  .sub { font-size: 14px; color: rgba(233,234,247,.6); letter-spacing: 2px; line-height: 1.9; margin-bottom: 42px; }
+  .btn {
+    display: block; width: 220px; padding: 13px 0; margin: 8px auto; border-radius: 999px;
+    font-size: 15px; letter-spacing: 4px; color: #FFF6DC; text-align: center; cursor: pointer;
+    background: rgba(255,214,107,.14); border: 1px solid rgba(255,214,107,.45);
+    box-shadow: 0 0 14px rgba(255,214,107,.12);
+  }
+  .btn.ghost { color:#BFC6EE; background: rgba(255,255,255,.05); border-color: rgba(191,198,238,.35); box-shadow:none; }
+  .btn.disabled { opacity: .38; cursor: default; }
+  .btn:active { transform: scale(.98); opacity: .8; }
+  .help-link { margin-top: 12px; font-size: 11px; color: rgba(255,233,196,.62); text-decoration: underline; cursor: pointer; }
+  .mood-grid { width: 100%; display: flex; flex-wrap: wrap; justify-content: space-between; gap: 12px 0; margin: 24px 0 14px; }
+  .mood {
+    width: 47%; padding: 14px 4px 12px; border-radius: 16px; cursor: pointer; text-align: center;
+    background: rgba(255,255,255,.05); border: 1px solid rgba(191,198,238,.25);
+  }
+  .mood:active, .mood:hover { background: rgba(255,214,107,.12); border-color: rgba(255,214,107,.45); }
+  .mood .face { font-size: 24px; display: block; margin-bottom: 6px; }
+  .mood .label { font-size: 13px; letter-spacing: 1px; color: rgba(233,234,247,.85); }
+  .question { font-size: 19px; letter-spacing: 3px; line-height: 1.8; }
+  .hint { font-size: 12px; color: rgba(233,234,247,.4); letter-spacing: 2px; margin-top: 16px; }
+  /* 游戏内浮层 */
+  .hud { position: absolute; top: 34px; left: 0; right: 0; text-align: center; z-index: 4; pointer-events: none; }
+  .mode-label { font-size: 13px; letter-spacing: 5px; color: rgba(233,234,247,.7); margin-bottom: 4px; }
+  .time-text { font-size: 12px; color: rgba(233,234,247,.5); letter-spacing: 3px; }
+  /* 声音与触感开关 */
+  .feedback-controls { position: absolute; top: 28px; left: 18px; z-index: 6; display: flex; flex-direction: column; gap: 5px; }
+  .feedback-btn {
+    padding: 3px 7px; cursor: pointer; font-size: 11px; letter-spacing: 1px; opacity: .55;
+    background: rgba(11,16,38,.35); border: 1px solid rgba(233,234,247,.2); border-radius: 999px;
+  }
+  .feedback-btn:active { opacity: .8; }
+  .time-bar { width: 150px; height: 2px; margin: 7px auto 0; background: rgba(255,255,255,.08); border-radius: 2px; overflow: hidden; }
+  .time-bar-inner { height: 100%; background: rgba(255,214,107,.55); transition: width .6s linear; }
+  .quit {
+    position: absolute; top: 30px; right: 20px; z-index: 18; padding: 5px 14px; cursor: pointer;
+    font-size: 12px; letter-spacing: 2px; color: rgba(233,234,247,.5);
+    border: 1px solid rgba(233,234,247,.25); border-radius: 999px; background: rgba(11,16,38,.35);
+  }
+  /* 夜空的低语「可以停一下」：默认隐身，只在需要时浮现 */
+  .pause-whisper {
+    position: absolute; left: 30px; right: 30px; bottom: 120px; z-index: 6;
+    text-align: center; font-size: 13px; line-height: 1.8; letter-spacing: 2px;
+    color: rgba(255,233,196,0); opacity: 0; visibility: hidden; cursor: pointer;
+    transition: opacity 1.2s ease, visibility 1.2s;
+  }
+  .pause-whisper.show {
+    opacity: 1; visibility: visible; color: rgba(255,233,196,.62);
+    text-shadow: 0 0 12px rgba(10,14,40,.9);
+  }
+  .pause-whisper .pw-line { display: block; font-size: 15px; letter-spacing: 4px; color: rgba(255,233,196,.85); }
+  .pause-whisper:active { opacity: .75; }
+  /* 晚安收尾 */
+  .goodnight {
+    position: absolute; inset: 0; z-index: 20;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    background: linear-gradient(180deg,#05070F 0%,#0B1026 60%,#151A3E 100%);
+    opacity: 0; visibility: hidden; pointer-events:none; transition: opacity 1.6s ease, visibility 1.6s;
+  }
+  .goodnight.show { opacity: 1; visibility: visible; pointer-events:auto; }
+  .gn-moon {
+    width: 56px; height: 56px; border-radius: 50%; margin-bottom: 34px;
+    background: radial-gradient(circle at 38% 38%, #FFF6DC, #F0D892 70%);
+    box-shadow: 0 0 30px rgba(255,214,107,.35), 0 0 70px rgba(255,214,107,.12);
+    animation: gnFloat 6s ease-in-out infinite;
+  }
+  @keyframes gnFloat { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
+  .gn-line { font-size: 15px; letter-spacing: 3px; line-height: 2.1; color: rgba(233,234,247,.85); opacity: 0; transform: translateY(7px); }
+  .goodnight.show .gn-1 { animation: gnIn 1.4s ease .6s forwards; }
+  .goodnight.show .gn-2 { animation: gnIn 1.4s ease 1.8s forwards; }
+  .goodnight.show .gn-3 { animation: gnIn 1.4s ease 3s forwards; color: rgba(233,234,247,.55); font-size: 14px; }
+  @keyframes gnIn { to { opacity: 1; transform: translateY(0); } }
+  .gn-back {
+    margin-top: 50px; font-size: 12px; letter-spacing: 3px; color: rgba(233,234,247,.52);
+    padding: 8px 20px; border: 1px solid rgba(233,234,247,.28); border-radius: 999px;
+    opacity: 0; cursor: pointer; animation: gnIn 1.4s ease 4.4s forwards;
+  }
+  .gn-actions { display: flex; flex-direction: column; align-items: center; }
+  .gn-actions .gn-back { margin-top: 36px; color: rgba(255,233,196,.78); border-color: rgba(255,233,196,.36); }
+  .gn-actions .gn-back.secondary { margin-top: 10px; border-color: transparent; color: rgba(233,234,247,.48); }
+  .toast {
+    position: absolute; left: 40px; right: 40px; top: 24%; text-align: center; z-index: 4; pointer-events: none;
+    font-size: 15px; line-height: 1.9; letter-spacing: 2px; color: rgba(244,245,255,.92);
+    text-shadow: 0 0 12px rgba(10,14,40,.9); opacity: 0; transform: translateY(8px);
+    transition: opacity .7s ease, transform .7s ease;
+  }
+  .toast.show { opacity: 1; transform: translateY(0); }
+  .breath-layer { position: absolute; left: 0; right: 0; top: 58%; text-align: center; z-index: 4; pointer-events: none; }
+  .breath-round { font-size: 12px; color: rgba(255,233,196,.55); letter-spacing: 3px; margin-bottom: 8px; }
+  .breath-phase { font-size: 24px; letter-spacing: 8px; color: #FFF3CE; text-shadow: 0 0 18px rgba(255,214,107,.4); }
+  .breath-sub { margin-top: 10px; font-size: 12px; color: rgba(233,234,247,.55); letter-spacing: 2px; }
+  .finale-layer { position:absolute; z-index:18; left:35px; right:35px; top:59px; text-align:center; opacity:0; transform:translateY(6px); transition:opacity .9s ease,transform .9s ease; pointer-events:none; }
+  .finale-layer.show { opacity:1; transform:translateY(0); }
+  .finale-kicker { font-size:8px; letter-spacing:2px; color:rgba(229,207,147,.42); }
+  .finale-text { margin-top:6px; font-size:13px; line-height:1.75; letter-spacing:.5px; color:rgba(244,232,201,.82); text-shadow:0 0 12px rgba(229,207,147,.18); }
+  /* 给情绪命名浮层 */
+  .name-layer { position: absolute; inset: 0; z-index: 7; opacity: 0; visibility: hidden; transition: opacity .7s ease; }
+  .name-layer.show { opacity: 1; visibility: visible; }
+  .name-q { position: absolute; top: 20%; left: 30px; right: 30px; text-align: center; font-size: 16px; line-height: 1.9; letter-spacing: 3px; color: rgba(244,245,255,.92); text-shadow: 0 0 12px rgba(10,14,40,.9); }
+  .name-options { position: absolute; top: 56%; left: 26px; right: 26px; display: flex; flex-wrap: wrap; justify-content: center; gap: 11px; }
+  .name-opt {
+    width: 88px; padding: 11px 0; text-align: center; border-radius: 999px; cursor: pointer;
+    font-size: 14px; letter-spacing: 3px; color: rgba(237,233,255,.85);
+    background: rgba(237,233,255,.06); border: 1px solid rgba(237,233,255,.28);
+  }
+  .name-opt.half { width: 135px; }
+  .name-opt:hover, .name-opt:active { background: rgba(237,233,255,.16); }
+  .custom-name-panel { position: absolute; top: 57%; left: 35px; right: 35px; text-align: center; }
+  .custom-name-input {
+    width: 100%; height: 44px; padding: 0 16px; border-radius: 999px; outline: none;
+    font: 15px -apple-system,"PingFang SC",sans-serif; letter-spacing: 2px; color: #F2EFFF;
+    background: rgba(237,233,255,.08); border: 1px solid rgba(237,233,255,.32);
+  }
+  .custom-name-input::placeholder { color: rgba(237,233,255,.32); }
+  .custom-name-error { min-height: 22px; margin-top: 6px; font-size: 11px; color: rgba(255,196,196,.75); }
+  .custom-name-actions { display: flex; justify-content: center; gap: 11px; margin-top: 6px; }
+  .custom-name-btn { padding: 8px 14px; border-radius: 999px; cursor: pointer; font-size: 12px; color: rgba(255,233,196,.9); border: 1px solid rgba(255,214,107,.38); background: rgba(255,214,107,.08); }
+  .custom-name-btn.secondary { color: rgba(237,233,255,.58); border-color: rgba(237,233,255,.22); background: rgba(237,233,255,.04); }
+  .name-result { position: absolute; top: 56%; left: 30px; right: 30px; text-align: center; }
+  .name-result .line { font-size: 14px; color: rgba(237,233,255,.7); letter-spacing: 2px; }
+  .name-result .strong { margin: 8px 0 11px; font-size: 19px; letter-spacing: 3px; color: #F2EFFF; text-shadow: 0 0 16px rgba(237,233,255,.45); }
+  .name-result .fb { font-size: 13px; line-height: 1.8; letter-spacing: 2px; color: rgba(233,234,247,.6); }
+  /* 结果面板 */
+  .result { z-index: 8; background: rgba(7,10,28,.72); backdrop-filter: blur(3px); }
+  .card {
+    width: 82%; padding: 30px 24px; border-radius: 20px; text-align: center;
+    background: rgba(15,19,48,.85); border: 1px solid rgba(191,198,238,.18);
+  }
+  .card-title { font-size: 20px; letter-spacing: 5px; color: #FFF6DC; margin-bottom: 24px; text-shadow: 0 0 16px rgba(255,214,107,.3); }
+  .line { font-size: 14px; letter-spacing: 1px; line-height: 2; color: rgba(233,234,247,.88); }
+  .divider { width: 60px; height: 1px; margin: 20px auto; background: linear-gradient(90deg,transparent,rgba(255,214,107,.5),transparent); }
+  .hint-text { font-size: 13px; letter-spacing: 1px; line-height: 1.9; color: rgba(233,234,247,.6); }
+  .dots { display: flex; flex-wrap: wrap; justify-content: center; gap: 7px; margin: 22px 0 6px; }
+  .dot { width: 7px; height: 7px; border-radius: 50%; }
+  /* 专业支持页 */
+  .help-screen { justify-content: flex-start; overflow-y: auto; padding: 34px 28px; }
+  .help-screen .title { font-size: 22px; margin: 10px 0 8px; }
+  .help-intro { margin-bottom: 22px; font-size: 13px; color: rgba(233,234,247,.58); }
+  .help-card { width: 100%; margin-bottom: 12px; padding: 16px 17px; border-radius: 14px; text-align: left; background: rgba(15,19,48,.68); border: 1px solid rgba(191,198,238,.18); }
+  .help-card.hotline { text-align: center; border-color: rgba(255,214,107,.28); }
+  .help-card.urgent { border-color: rgba(255,184,198,.28); background: rgba(54,29,55,.36); }
+  .help-card h3 { margin-bottom: 7px; font-size: 14px; letter-spacing: 2px; color: rgba(255,246,220,.9); }
+  .help-card p { font-size: 12px; line-height: 1.8; color: rgba(233,234,247,.68); }
+  .help-number { margin: 6px 0; font-size: 34px; letter-spacing: 6px; color: #FFD66B; }
+  .help-source { margin: 12px 4px; font-size: 10px; line-height: 1.7; color: rgba(233,234,247,.36); }
+  /* 右侧说明栏 */
+  .side { max-width: 300px; line-height: 1.9; font-size: 13px; color: rgba(233,234,247,.65); }
+  .side h2 { font-size: 16px; color: #FFF6DC; letter-spacing: 3px; margin-bottom: 14px; }
+  .side h3 { font-size: 14px; color: rgba(255,214,107,.85); margin: 18px 0 6px; letter-spacing: 2px; }
+  .side code { color: #BFC6EE; }
+  .side .dev-btn { display:inline-block; margin: 4px 6px 0 0; padding: 4px 12px; border:1px solid rgba(191,198,238,.3); border-radius: 999px; cursor:pointer; font-size:12px; }
+  .side .dev-btn:hover { background: rgba(255,214,107,.1); }
+</style>
+<style>
+  /* v3 月光编辑感：与小程序共用视觉语言 */
+  body {
+    background: #03050B;
+    font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif;
+    color: #EEF0F7;
+  }
+  .display-type { font-family: "Songti SC", "STSong", "Noto Serif CJK SC", "Source Han Serif SC", "SimSun", serif; font-weight: 400; line-height: 1.4; }
+  .eyebrow { font-size: 10px; line-height: 1.4; letter-spacing: 2px; color: rgba(229,207,147,.62); }
+  .phone {
+    height: min(780px, calc(100vh - 44px));
+    border-color: rgba(204,210,231,.15);
+    box-shadow: 0 28px 90px rgba(0,0,0,.48), inset 0 1px 0 rgba(255,255,255,.04);
+    background: radial-gradient(circle at 14% -8%,rgba(106,122,179,.2),transparent 36%),linear-gradient(180deg,#080B17 0%,#0D1124 48%,#12162C 100%);
+  }
+  .ambient-orb { position:absolute; border-radius:50%; pointer-events:none; filter:blur(6px); }
+  .preview-orb-one { width:230px; height:230px; top:-125px; right:-105px; background:radial-gradient(circle,rgba(104,119,172,.2),transparent 68%); }
+  .preview-orb-two { width:200px; height:200px; top:380px; left:-140px; background:radial-gradient(circle,rgba(117,83,136,.15),transparent 68%); }
+  .start-screen { justify-content:flex-start; align-items:stretch; padding:0; overflow-x:hidden; overflow-y:auto; text-align:left; scrollbar-width:none; }
+  .start-screen::-webkit-scrollbar,#scrMood::-webkit-scrollbar,.result::-webkit-scrollbar,.help-screen::-webkit-scrollbar,.diary-screen::-webkit-scrollbar { display:none; width:0; height:0; }
+  .preview-hero { position:relative; z-index:1; display:flex; flex-direction:column; align-items:center; padding:35px 28px 0; text-align:center; }
+  .hero-art { position:relative; width:195px; height:90px; display:flex; align-items:center; justify-content:center; cursor:pointer; }
+  .moon-area { position:relative; width:66px; height:66px; display:flex; align-items:center; justify-content:center; margin:0; }
+  .moon-entry { cursor:pointer; transform:translateZ(0); }
+  .moon-halo { position:absolute; width:96px; height:96px; border-radius:50%; background:radial-gradient(circle,rgba(244,232,201,.12),transparent 68%); }
+  .moon-area canvas { position:relative; pointer-events:none; }
+  .moon-orbit { position:absolute; z-index:3; width:87px; height:56px; border:1px solid rgba(229,207,147,.2); border-left-color:transparent; border-bottom-color:rgba(184,194,226,.08); border-radius:50%; transform:rotate(-16deg); animation:heroOrbit 6.8s ease-in-out infinite; pointer-events:none; }
+  .moon-orbit-star { position:absolute; right:3px; top:8px; font-size:11px; line-height:1; color:#F4E8C9; text-shadow:0 0 9px rgba(229,207,147,.68); animation:heroStar 3.4s ease-in-out infinite; }
+  .preview-path { position:absolute; left:50%; top:50%; width:124px; height:41px; margin:-20px 0 0 -62px; border-top:1px solid rgba(229,207,147,.16); border-radius:50%; transform-origin:center; pointer-events:none; transition:opacity .6s ease,transform .72s cubic-bezier(.22,.8,.28,1),border-color .6s ease; }
+  .preview-path span { position:absolute; right:7px; top:-7px; font-size:9px; line-height:1; color:rgba(244,232,201,.58); text-shadow:0 0 8px rgba(229,207,147,.38); }
+  .path-one { transform:rotate(-12deg) scaleX(.96); }
+  .path-two { width:154px; margin-left:-77px; transform:rotate(15deg) scaleX(.88); border-color:rgba(184,194,226,.11); }
+  .path-two span { left:12px; right:auto; color:rgba(184,194,226,.42); }
+  .path-three { width:165px; height:63px; margin:-22px 0 0 -82px; transform:rotate(-31deg) scaleX(.72); border-color:rgba(229,207,147,.08); }
+  .path-three span { right:17px; }
+  .preview-hero.is-entering .preview-path { opacity:1; border-color:rgba(244,232,201,.62); filter:drop-shadow(0 0 5px rgba(229,207,147,.34)); }
+  .preview-hero.is-entering .path-one { transform:rotate(-7deg) scaleX(1.22); }
+  .preview-hero.is-entering .path-two { transform:rotate(10deg) scaleX(1.08); }
+  .preview-hero.is-entering .path-three { transform:rotate(-24deg) scaleX(.94); }
+  .preview-hero.is-entering .moon-halo { animation:entryHalo .68s ease-out both; }
+  .preview-hero.is-entering .moon-orbit { animation:entryOrbit .68s ease-out both; }
+  .preview-hero.is-entering .moon-orbit-star { animation:entryStar .68s ease-out both; }
+  @keyframes entryHalo { 0%{opacity:.6;transform:scale(.92)}55%{opacity:1;transform:scale(1.38)}100%{opacity:.42;transform:scale(1.1)} }
+  @keyframes entryOrbit { to{transform:rotate(8deg) scale(1.2);border-color:rgba(244,232,201,.46)} }
+  @keyframes entryStar { 0%{transform:translate(0,0) scale(.8)}55%{transform:translate(33px,-9px) scale(1.34);opacity:1}100%{transform:translate(51px,9px) scale(.7);opacity:0} }
+  .hero-tap { margin-top:0; font-size:9px; letter-spacing:1px; color:rgba(229,207,147,.5); }
+  .moon-name { margin-top:7px; }
+  @keyframes heroOrbit { 0%,100%{transform:rotate(-18deg) scale(.98);opacity:.62}50%{transform:rotate(-11deg) scale(1.03);opacity:.96} }
+  @keyframes heroStar { 0%,100%{transform:scale(.82);opacity:.58}50%{transform:scale(1.12);opacity:1} }
+  .start-screen .title { margin:22px 0 0; font-size:29px; line-height:1.35; letter-spacing:2.5px; color:#F5EBD4; text-shadow:0 5px 20px rgba(3,5,14,.55); }
+  .title-rule { width:90px; margin:9px auto 12px; display:flex; align-items:center; justify-content:center; font-size:9px; color:rgba(229,207,147,.56); }
+  .title-rule::before,.title-rule::after { content:""; width:27px; height:1px; margin:0 7px; background:linear-gradient(90deg,transparent,rgba(229,207,147,.42)); }
+  .title-rule::after { transform:rotate(180deg); }
+  .sub { margin:0; font-size:14px; line-height:1.9; letter-spacing:.5px; color:rgba(238,240,247,.68); }
+  .preview-main { position:relative; z-index:1; padding:28px 23px 20px; }
+  .action-label { margin:0 4px 10px; font-size:11.5px; letter-spacing:1px; color:rgba(221,225,239,.46); }
+  .action-card { box-sizing:border-box; border-radius:15px; border:1px solid transparent; cursor:pointer; transition:transform .18s ease,opacity .18s ease; }
+  .action-card:active { transform:scale(.985); opacity:.82; }
+  .action-primary { min-height:73px; padding:16px 17px 15px 19px; display:flex; align-items:center; justify-content:space-between; color:#171A29; background:linear-gradient(135deg,#F3E8CB,#E4CE95); border-color:rgba(255,250,234,.56); box-shadow:0 12px 30px rgba(2,4,12,.28); }
+  .action-edition { margin-bottom:4px; font-size:9px; line-height:1.3; letter-spacing:1px; color:rgba(23,26,41,.46); }
+  .action-title { font-size:17px; line-height:1.4; letter-spacing:.5px; font-weight:500; }
+  .action-title.small { margin-top:10px; font-size:13.5px; color:rgba(238,240,247,.88); }
+  .action-desc { margin-top:4px; font-size:11px; line-height:1.55; letter-spacing:0; color:rgba(23,26,41,.56); }
+  .creation-path { margin-top:8px; display:flex; align-items:center; gap:5px; font-size:8.5px; line-height:1.4; color:rgba(23,26,41,.48); }
+  .creation-path i { width:12px; height:1px; background:rgba(23,26,41,.2); }
+  .action-primary.is-entering .action-arrow { animation:entryArrow .68s ease-out both; }
+  @keyframes entryArrow { 0%{transform:scale(1)}55%{transform:scale(1.16);background:rgba(255,255,255,.58)}100%{transform:scale(.96)} }
+  .action-arrow { width:28px; height:28px; margin-left:10px; display:flex; align-items:center; justify-content:center; border-radius:50%; font-size:22px; color:rgba(23,26,41,.74); background:rgba(255,255,255,.3); }
+  .sleep-boundary { margin-top:7px; text-align:center; font-size:9.5px; line-height:1.6; letter-spacing:.5px; color:rgba(221,225,239,.42); }
+  .action-grid { display:flex; gap:9px; margin-top:9px; }
+  .action-secondary { flex:1; min-width:0; min-height:97px; padding:14px 12px 12px; background:linear-gradient(145deg,rgba(255,255,255,.065),rgba(255,255,255,.028)); border-color:rgba(204,210,231,.14); box-shadow:inset 0 1px 0 rgba(255,255,255,.05); }
+  .action-secondary .action-desc { color:rgba(221,225,239,.42); }
+  .action-symbol { width:23px; height:23px; display:flex; align-items:center; justify-content:center; border-radius:50%; font-size:12px; color:rgba(229,207,147,.78); border:1px solid rgba(229,207,147,.28); background:rgba(229,207,147,.05); }
+  .help-link { display:block; margin:15px auto 2px; padding:6px; text-align:center; font-size:11.5px; letter-spacing:1px; color:rgba(229,207,147,.66); text-decoration:none; }
+  .meteor { background:linear-gradient(90deg,transparent,rgba(248,244,233,.82)); animation-duration:15s; }
+
+  #scrMood { justify-content:flex-start; padding:52px 23px 28px; overflow-x:hidden; overflow-y:auto; scrollbar-width:none; }
+  #scrMood .question { margin-top:14px; font-size:23px; line-height:1.65; letter-spacing:1.5px; color:#F3EAD5; }
+  .head-rule { width:27px; height:1px; margin:15px auto 0; background:rgba(229,207,147,.58); }
+  .mood-grid { margin:27px 0 7px; gap:9px; }
+  .mood { position:relative; width:calc(50% - 4.5px); min-height:115px; padding:13px 13px 14px; border-radius:14px; text-align:left; background:linear-gradient(150deg,rgba(255,255,255,.064),rgba(255,255,255,.026)); border-color:rgba(204,210,231,.14); }
+  .mood:hover,.mood:active { background:rgba(229,207,147,.08); border-color:rgba(229,207,147,.3); }
+  .mood-top { display:flex; align-items:center; justify-content:space-between; }
+  .mood-mark { width:9px; height:9px; border-radius:50%; }
+  .mood-index { font-size:9px; letter-spacing:1px; color:rgba(221,225,239,.27); }
+  .mood .label { display:block; max-width:110px; margin-top:17px; font-size:14.5px; line-height:1.5; letter-spacing:0; color:rgba(238,240,247,.9); }
+  .mood-desc { margin-top:5px; padding-right:10px; font-size:10.5px; line-height:1.5; color:rgba(221,225,239,.4); }
+  .mood-arrow { position:absolute; right:11px; bottom:10px; font-size:16px; color:rgba(229,207,147,.42); }
+  .hint { font-size:11px; letter-spacing:.5px; color:rgba(221,225,239,.34); }
+
+  .feedback-controls { left:15px; gap:4px; }
+  .feedback-btn { padding:4px 7px; font-size:9.5px; color:rgba(221,225,239,.46); opacity:1; background:rgba(7,10,23,.52); border-color:rgba(204,210,231,.14); }
+  .feedback-btn.is-on { color:rgba(244,232,201,.88); border-color:rgba(229,207,147,.32); background:rgba(229,207,147,.09); }
+  .time-bar-inner { background:rgba(229,207,147,.62); }
+  .mode-label { letter-spacing:3px; }
+  .time-text { letter-spacing:2px; }
+  .quit { right:15px; font-size:10.5px; letter-spacing:1px; color:rgba(221,225,239,.48); background:rgba(7,10,23,.52); border-color:rgba(204,210,231,.16); }
+  .goodnight { background:linear-gradient(180deg,#05070D,#080B17 58%,#11162B); }
+  .gn-line { font-family:"Songti SC","STSong","Noto Serif CJK SC","Source Han Serif SC","SimSun",serif; letter-spacing:1px; }
+  .gn-back { letter-spacing:.5px; }
+  .gn-moon { background:radial-gradient(circle at 38% 38%,#FFF8E7,#E5CF93 70%); box-shadow:0 0 30px rgba(229,207,147,.3),0 0 70px rgba(229,207,147,.1); }
+  .breath-round { letter-spacing:1px; color:rgba(229,207,147,.58); }
+  .breath-phase { letter-spacing:4px; color:#F4E8C9; text-shadow:0 0 18px rgba(229,207,147,.32); }
+  .breath-sub { letter-spacing:0; }
+  .name-q { letter-spacing:1px; }
+  .name-opt { letter-spacing:.5px; }
+  .custom-name-input { letter-spacing:.5px; }
+  .toast { letter-spacing:.5px; }
+  .custom-name-input { border-radius:11px; color:#EEF0F7; background:rgba(255,255,255,.055); border-color:rgba(204,210,231,.2); }
+  .custom-name-btn:not(.secondary) { color:#171A29; border-color:rgba(255,246,220,.52); background:linear-gradient(135deg,#F3E8CB,#E4CE95); }
+
+  .result { justify-content:flex-start; overflow-x:hidden; overflow-y:auto; scrollbar-width:none; padding:24px 19px 28px; background:linear-gradient(180deg,#080B17,#0D1124 58%,#12162C); }
+  .card { width:100%; padding:27px 19px 21px; border-radius:18px; background:linear-gradient(160deg,rgba(255,255,255,.062),rgba(255,255,255,.022)); border-color:rgba(204,210,231,.14); box-shadow:0 14px 40px rgba(2,4,12,.24),inset 0 1px 0 rgba(255,255,255,.045); }
+  .card-kicker { font-size:9px; letter-spacing:1.5px; color:rgba(229,207,147,.55); }
+  .card-title { margin:9px 0 0; font-size:24px; letter-spacing:2px; color:#F3EAD5; text-shadow:none; }
+  .card-ornament { margin:9px 0 17px; font-size:9px; color:rgba(229,207,147,.52); }
+  .line { font-size:14px; line-height:1.95; letter-spacing:0; color:rgba(238,240,247,.84); }
+  .divider { margin:17px auto; background:linear-gradient(90deg,transparent,rgba(229,207,147,.42),transparent); }
+  .hint-text { font-size:12.5px; letter-spacing:0; color:rgba(221,225,239,.55); }
+  .light-box { margin-top:19px; padding:12px; border-radius:12px; background:rgba(4,6,15,.28); border:1px solid rgba(204,210,231,.08); }
+  .light-label { font-size:9.5px; letter-spacing:1.5px; color:rgba(221,225,239,.34); }
+  .dots { min-height:9px; margin:10px 0 0; }
+  .artwork-frame { position:relative; margin:0 0 17px; padding:10px 10px 12px; border-radius:14px 17px 15px 18px; background:linear-gradient(180deg,rgba(5,8,22,.62),rgba(25,25,47,.3)); border:1px solid rgba(229,207,147,.14); }
+  .frame-corner { position:absolute; z-index:2; width:13px; height:13px; pointer-events:none; opacity:.58; }
+  .corner-tl { left:6px; top:6px; border-left:1px solid #E5CF93; border-top:1px solid #E5CF93; }
+  .corner-tr { right:6px; top:6px; border-right:1px solid #E5CF93; border-top:1px solid #E5CF93; }
+  .corner-bl { left:6px; bottom:6px; border-left:1px solid #E5CF93; border-bottom:1px solid #E5CF93; }
+  .corner-br { right:6px; bottom:6px; border-right:1px solid #E5CF93; border-bottom:1px solid #E5CF93; }
+  .artwork-frame canvas { position:static; inset:auto; width:100%; height:215px; cursor:default; }
+  .artwork-edition { margin:2px 0 5px; font-size:8.5px; letter-spacing:1.5px; color:rgba(229,207,147,.48); }
+  .artwork-name { margin-top:4px; font-size:16px; color:#F3EAD5; letter-spacing:1px; }
+  .artwork-style { margin-top:5px; text-align:center; font-size:8.5px; letter-spacing:1px; color:rgba(229,207,147,.58); }
+  .artwork-meta { margin:6px auto 0; display:flex; justify-content:center; gap:12px; font-size:9.5px; letter-spacing:.5px; color:rgba(221,225,239,.45); }
+  .original-certificate { width:230px; max-width:100%; margin:11px auto 0; padding:7px 10px; display:flex; align-items:center; gap:9px; text-align:left; border-top:1px solid rgba(229,207,147,.16); border-bottom:1px solid rgba(229,207,147,.09); background:linear-gradient(90deg,rgba(229,207,147,.045),transparent); }
+  .original-seal { flex:0 0 31px; width:31px; height:31px; display:flex; flex-direction:column; align-items:center; justify-content:center; border:1px solid rgba(229,207,147,.58); border-radius:50% 47% 52% 48%; color:rgba(244,232,201,.88); transform:rotate(-6deg); box-shadow:inset 0 0 0 1.5px rgba(229,207,147,.045); }
+  .original-seal span { font-size:10px; line-height:1.15; letter-spacing:1px; }
+  .original-seal small { margin-top:1px; font-size:6.5px; line-height:1; letter-spacing:.5px; opacity:.56; }
+  .original-copy { flex:1; min-width:0; display:flex; flex-direction:column; }
+  .original-copy strong { font-size:9px; line-height:1.5; letter-spacing:1px; font-weight:400; color:rgba(229,207,147,.72); }
+  .original-copy span { margin-top:2px; font-size:9px; line-height:1.55; color:rgba(221,225,239,.46); }
+  .artwork-replay { width:max-content; min-height:36px; margin:11px auto 0; padding:7px 14px; display:flex; align-items:center; justify-content:center; gap:5px; border:1px solid rgba(229,207,147,.28); border-radius:999px; background:rgba(229,207,147,.045); color:rgba(244,232,201,.82); font-size:11px; letter-spacing:.5px; cursor:pointer; }
+  .artwork-replay.disabled { pointer-events:none; color:rgba(244,232,201,.56); }
+  .replay-star { color:#E5CF93; text-shadow:0 0 7px rgba(229,207,147,.55); }
+  .artwork-replay.playing .replay-star { animation:replayPulse 1.3s ease-in-out infinite; }
+  .firework-note { max-height:0; margin-top:0; overflow:hidden; text-align:center; font-family:"STKaiti","KaiTi","Songti SC","STSong",serif; font-size:10.5px; line-height:1.72; letter-spacing:.5px; color:rgba(244,232,201,0); transition:max-height .7s ease,margin-top .7s ease,color .7s ease; }
+  .firework-note.show { max-height:43px; margin-top:8.5px; color:rgba(244,232,201,.62); }
+  .artwork-voice { position:relative; margin:0 0 17px; padding:14px 14px 12px 16px; border-left:1.5px solid rgba(229,207,147,.36); border-radius:2px 11px 12px 3px; background:linear-gradient(100deg,rgba(229,207,147,.055),rgba(255,255,255,.018)); }
+  .artwork-voice::after { content:'✦'; position:absolute; top:10px; right:12px; font-size:8px; color:rgba(229,207,147,.34); }
+  .artwork-voice-kicker { margin-bottom:7px; font-size:9px; letter-spacing:1.5px; color:rgba(229,207,147,.63); }
+  .artwork-voice-line { padding-right:6px; font-size:13px; line-height:1.86; color:rgba(238,240,247,.78); }
+  .artwork-voice-line + .artwork-voice-line { margin-top:2.5px; }
+  .artwork-voice-note { margin-top:8.5px; font-size:9px; line-height:1.55; letter-spacing:.5px; color:rgba(221,225,239,.35); }
+  @keyframes replayPulse { 0%,100%{opacity:.5} 50%{opacity:1} }
+  .result-actions { margin-top:17px; display:flex; flex-direction:column; gap:9px; }
+  .btn { width:100%; min-height:46px; margin:0; padding:11px 17px; display:flex; align-items:center; justify-content:center; border-radius:13px; font-size:14.5px; line-height:1.35; letter-spacing:.5px; font-weight:500; color:#15182A; background:linear-gradient(135deg,#F4E8C9,#E5CF93); border-color:rgba(255,246,220,.62); box-shadow:0 9px 24px rgba(2,4,12,.22); }
+  .btn.ghost { color:rgba(238,240,247,.78); background:rgba(255,255,255,.045); border-color:rgba(204,210,231,.16); box-shadow:inset 0 1px 0 rgba(255,255,255,.04); }
+  .secondary-actions { display:flex; gap:8px; }
+  .btn.compact { flex:1; min-width:0; min-height:40px; padding:9px 7px; font-size:12px; }
+  .quiet-btn { padding:7px; text-align:center; font-size:11px; letter-spacing:0; color:rgba(221,225,239,.48); cursor:pointer; }
+
+  .help-screen { align-items:stretch; text-align:left; padding:32px 20px; scrollbar-width:none; }
+  .help-screen>.eyebrow { text-align:center; }
+  .help-screen .title { margin:14px 0 9px; text-align:center; font-size:23px; letter-spacing:2px; color:#F3EAD5; text-shadow:none; }
+  .help-intro { text-align:center; color:rgba(221,225,239,.52); }
+  .help-card { position:relative; border-radius:15px; background:linear-gradient(150deg,rgba(255,255,255,.058),rgba(255,255,255,.025)); border-color:rgba(204,210,231,.13); box-shadow:inset 0 1px 0 rgba(255,255,255,.04); }
+  .help-card.hotline { background:linear-gradient(150deg,rgba(229,207,147,.085),rgba(255,255,255,.025)); border-color:rgba(229,207,147,.28); }
+  .help-card.urgent { background:linear-gradient(150deg,rgba(117,56,76,.22),rgba(255,255,255,.018)); border-color:rgba(220,154,165,.26); }
+  .card-index { position:absolute; top:12px; right:13px; font-size:9px; letter-spacing:1px; color:rgba(221,225,239,.25); }
+  .help-card h3 { letter-spacing:.5px; color:rgba(245,235,212,.9); }
+  .help-card p { line-height:1.9; letter-spacing:0; color:rgba(221,225,239,.62); }
+  .help-number { color:#E5CF93; text-shadow:0 0 14px rgba(229,207,147,.24); }
+  .help-screen .btn { width:180px; margin:14px auto 0; }
+  .side { color:rgba(221,225,239,.6); }
+  .side h2 { color:#F3EAD5; }
+  .side h3 { color:rgba(229,207,147,.8); }
+</style>
+<style>
+  /* v4 轻蜡笔涂鸦：月光编辑感为底，只加入约 30% 手绘质感 */
+  .phone {
+    background:
+      repeating-linear-gradient(8deg,rgba(244,232,201,.012) 0,rgba(244,232,201,.012) 1px,transparent 1px,transparent 7px),
+      repeating-linear-gradient(98deg,rgba(183,194,226,.01) 0,rgba(183,194,226,.01) 1px,transparent 1px,transparent 9px),
+      radial-gradient(circle at 14% -8%,rgba(106,122,179,.2),transparent 36%),
+      linear-gradient(180deg,#080B17 0%,#0D1124 48%,#12162C 100%);
+  }
+  .moon-scribble { position:absolute; z-index:1; border:1px solid rgba(229,207,147,.22); border-radius:48% 52% 46% 54%; pointer-events:none; }
+  .scribble-one { width:74px; height:69px; transform:rotate(-12deg); border-right-color:transparent; border-bottom-color:rgba(229,207,147,.08); }
+  .scribble-two { width:79px; height:73px; transform:rotate(16deg); border-left-color:transparent; border-top-color:rgba(184,194,226,.11); }
+  .moon-area canvas { z-index:2; }
+  .start-screen .title { text-shadow:1px 1px 0 rgba(161,139,93,.16),-1px 1px 0 rgba(128,142,190,.1); }
+  .title-rule::before,.title-rule::after { height:1.5px; border-radius:50%; transform:rotate(-2deg); }
+  .title-rule::after { transform:rotate(182deg); }
+  .action-card { position:relative; overflow:hidden; }
+  .action-card::after { content:""; position:absolute; inset:3px; border:1px solid rgba(244,232,201,.11); border-radius:13px 15px 12px 16px; pointer-events:none; }
+  .action-primary { border-radius:16px 14px 17px 14px; background:repeating-linear-gradient(164deg,rgba(255,255,255,.075) 0,rgba(255,255,255,.075) 1px,transparent 1px,transparent 6px),linear-gradient(135deg,#F3E8CB,#E4CE95); box-shadow:inset 0 0 0 1px rgba(104,82,46,.08),0 12px 30px rgba(2,4,12,.28); }
+  .action-primary::after { border-color:rgba(92,70,37,.13); }
+  .action-secondary { border-radius:14px 16px 13px 17px; background:repeating-linear-gradient(14deg,rgba(232,235,247,.018) 0,rgba(232,235,247,.018) 1px,transparent 1px,transparent 6px),linear-gradient(145deg,rgba(255,255,255,.066),rgba(255,255,255,.025)); }
+  .action-secondary:first-child { transform:rotate(-.32deg); }
+  .action-secondary:last-child { transform:rotate(.28deg); }
+  .action-symbol { border-width:1.5px; border-radius:47% 53% 50% 46%; box-shadow:1px 1px 0 rgba(229,207,147,.08); }
+  .head-rule { height:2px; border-radius:50%; transform:rotate(-2deg); box-shadow:0 2px 0 rgba(229,207,147,.07); }
+  .mood { overflow:hidden; border-radius:14px 16px 13px 16px; background:repeating-linear-gradient(12deg,rgba(232,235,247,.018) 0,rgba(232,235,247,.018) 1px,transparent 1px,transparent 6px),linear-gradient(150deg,rgba(255,255,255,.064),rgba(255,255,255,.026)); box-shadow:inset 0 0 0 1px rgba(238,240,247,.018); }
+  .mood::after { content:""; position:absolute; inset:3px; border:1px solid rgba(229,207,147,.07); border-radius:12px 14px 12px 15px; pointer-events:none; }
+  .mood:nth-child(2n) { transform:rotate(.22deg); }
+  .mood:nth-child(2n + 1) { transform:rotate(-.22deg); }
+  .mood-mark { border:1px solid rgba(255,255,255,.15); box-shadow:1px 1px 0 rgba(255,255,255,.07); }
+  .card { border-radius:17px 20px 17px 19px; background:repeating-linear-gradient(9deg,rgba(244,232,201,.014) 0,rgba(244,232,201,.014) 1px,transparent 1px,transparent 7px),linear-gradient(160deg,rgba(255,255,255,.062),rgba(255,255,255,.022)); box-shadow:inset 0 0 0 1px rgba(238,240,247,.018),0 14px 40px rgba(2,4,12,.24); }
+  .card-ornament { transform:rotate(-8deg); text-shadow:2px 1px 0 rgba(229,207,147,.1); }
+  .divider { height:1.5px; border-radius:50%; transform:rotate(-1deg); }
+  .light-box { border-radius:11px 13px 11px 14px; background:repeating-linear-gradient(14deg,rgba(238,240,247,.014) 0,rgba(238,240,247,.014) 1px,transparent 1px,transparent 6px),rgba(4,6,15,.28); }
+  .dot { border:1px solid rgba(255,255,255,.16); transform:rotate(-8deg); }
+  .btn { border-radius:15px 13px 16px 14px; background:repeating-linear-gradient(166deg,rgba(255,255,255,.075) 0,rgba(255,255,255,.075) 1px,transparent 1px,transparent 6px),linear-gradient(135deg,#F4E8C9,#E5CF93); box-shadow:inset 0 0 0 1px rgba(126,103,57,.08),0 9px 24px rgba(2,4,12,.22); }
+  .btn.ghost { background:repeating-linear-gradient(12deg,rgba(238,240,247,.018) 0,rgba(238,240,247,.018) 1px,transparent 1px,transparent 6px),rgba(255,255,255,.042); }
+  .gn-moon { border:2px solid rgba(255,248,231,.18); box-shadow:3px -1px 0 rgba(229,207,147,.1),-2px 2px 0 rgba(151,162,204,.07),0 0 30px rgba(229,207,147,.3); }
+  .feedback-btn,.quit,.name-opt,.custom-name-input,.custom-name-btn,.gn-back { border-width:1.5px; border-radius:48% 52% 47% 53%; box-shadow:inset 0 0 0 1px rgba(238,240,247,.025); }
+  .pause-whisper,.toast,.breath-phase,.name-result .strong { font-family:"STKaiti","KaiTi","Songti SC","STSong",serif; }
+  .help-card { border-radius:15px 17px 14px 17px; background:repeating-linear-gradient(10deg,rgba(238,240,247,.01) 0,rgba(238,240,247,.01) 1px,transparent 1px,transparent 7px),linear-gradient(150deg,rgba(255,255,255,.058),rgba(255,255,255,.025)); }
+  .help-card.hotline { background:repeating-linear-gradient(10deg,rgba(244,232,201,.012) 0,rgba(244,232,201,.012) 1px,transparent 1px,transparent 7px),linear-gradient(150deg,rgba(229,207,147,.085),rgba(255,255,255,.025)); }
+  .help-card.urgent { background:repeating-linear-gradient(10deg,rgba(235,185,192,.01) 0,rgba(235,185,192,.01) 1px,transparent 1px,transparent 7px),linear-gradient(150deg,rgba(117,56,76,.22),rgba(255,255,255,.018)); }
+
+  /* v4.1：更自然的稀疏纸粒，避免规则条纹像布料 */
+  .phone {
+    background:
+      radial-gradient(circle at 18% 24%,rgba(244,232,201,.035) 0,rgba(244,232,201,.035) .5px,transparent 1px) 0 0/21px 19px,
+      radial-gradient(circle at 74% 66%,rgba(180,190,224,.026) 0,rgba(180,190,224,.026) .5px,transparent 1px) 7px 5px/29px 25px,
+      radial-gradient(circle at 14% -8%,rgba(106,122,179,.2),transparent 36%),
+      linear-gradient(180deg,#080B17 0%,#0D1124 48%,#12162C 100%);
+  }
+  .action-primary {
+    background:
+      radial-gradient(circle at 18% 28%,rgba(255,255,255,.18) 0,rgba(255,255,255,.18) .5px,transparent 1px) 0 0/21px 17px,
+      linear-gradient(164deg,transparent 0%,rgba(255,255,255,.085) 23%,transparent 28%,rgba(125,94,43,.035) 64%,transparent 72%),
+      linear-gradient(135deg,#F3E8CB,#E4CE95);
+  }
+  .action-secondary { background:radial-gradient(circle at 23% 37%,rgba(232,235,247,.04) 0,rgba(232,235,247,.04) .5px,transparent 1px) 0 0/25px 21px,linear-gradient(145deg,rgba(255,255,255,.066),rgba(255,255,255,.025)); }
+  .title-rule { text-shadow:-17px 4px 0 rgba(184,194,226,.12),18px -3px 0 rgba(229,207,147,.10); }
+  .mood { background:radial-gradient(circle at 20% 32%,rgba(232,235,247,.038) 0,rgba(232,235,247,.038) .5px,transparent 1px) 0 0/24px 21px,linear-gradient(151deg,rgba(255,255,255,.064),rgba(255,255,255,.026)); }
+  .mood:nth-child(2),.mood:nth-child(5) { background:radial-gradient(circle at 68% 24%,rgba(211,193,238,.045) 0,rgba(211,193,238,.045) .5px,transparent 1px) 0 0/26px 22px,linear-gradient(150deg,rgba(117,102,164,.11),rgba(255,255,255,.026)); }
+  .card { background:radial-gradient(circle at 19% 29%,rgba(244,232,201,.032) 0,rgba(244,232,201,.032) .5px,transparent 1px) 0 0/27px 24px,linear-gradient(18deg,transparent 0%,rgba(229,207,147,.014) 39%,transparent 46%),linear-gradient(160deg,rgba(255,255,255,.062),rgba(255,255,255,.022)); }
+  .light-box { background:radial-gradient(circle at 24% 36%,rgba(238,240,247,.035) 0,rgba(238,240,247,.035) .5px,transparent 1px) 0 0/24px 20px,rgba(4,6,15,.28); }
+  .btn { background:radial-gradient(circle at 22% 28%,rgba(255,255,255,.18) 0,rgba(255,255,255,.18) .5px,transparent 1px) 0 0/20px 16px,linear-gradient(164deg,transparent 0%,rgba(255,255,255,.08) 24%,transparent 29%,rgba(142,112,58,.035) 66%,transparent 72%),linear-gradient(135deg,#F4E8C9,#E5CF93); }
+  .btn.ghost { background:radial-gradient(circle at 25% 34%,rgba(238,240,247,.045) 0,rgba(238,240,247,.045) .5px,transparent 1px) 0 0/24px 20px,rgba(255,255,255,.042); }
+  .help-card { background:radial-gradient(circle at 20% 32%,rgba(238,240,247,.022) 0,rgba(238,240,247,.022) .5px,transparent 1px) 0 0/29px 25px,linear-gradient(150deg,rgba(255,255,255,.058),rgba(255,255,255,.025)); }
+  .help-card.hotline { background:radial-gradient(circle at 24% 38%,rgba(244,232,201,.025) 0,rgba(244,232,201,.025) .5px,transparent 1px) 0 0/31px 27px,linear-gradient(150deg,rgba(229,207,147,.085),rgba(255,255,255,.025)); }
+  .help-card.urgent { background:radial-gradient(circle at 70% 30%,rgba(235,185,192,.022) 0,rgba(235,185,192,.022) .5px,transparent 1px) 0 0/30px 26px,linear-gradient(150deg,rgba(117,56,76,.22),rgba(255,255,255,.018)); }
+
+  /* v4.2：首次操作提示与夜间可读性 */
+  .game-guide {
+    position:absolute; z-index:5; left:55px; right:55px; bottom:95px;
+    padding:11px 12px 10px; text-align:center; pointer-events:none;
+    font-size:12.5px; line-height:1.55; letter-spacing:.5px;
+    color:rgba(244,232,201,0); background:rgba(7,10,23,0);
+    border:1px solid rgba(229,207,147,0); border-radius:13px 15px 13px 16px;
+    opacity:0; transform:translateY(6px);
+    transition:opacity .8s ease,transform .8s ease,color .8s ease,background .8s ease,border-color .8s ease;
+  }
+  .game-guide.show { color:rgba(244,232,201,.78); background:rgba(7,10,23,.46); border-color:rgba(229,207,147,.13); opacity:1; transform:translateY(0); }
+  .guide-line { width:27px; height:1.5px; margin:0 auto 6px; border-radius:50%; transform:rotate(-2deg); background:rgba(229,207,147,.4); }
+  .guide-sub { margin-top:1px; font-size:11px; color:rgba(221,225,239,.54); }
+  .path-progress { position:absolute; z-index:4; left:45px; right:45px; bottom:28px; min-height:32px; padding:6px 11px; display:flex; align-items:center; justify-content:center; gap:7px; border-radius:48% 52% 46% 54%; text-align:center; pointer-events:none; font-size:11px; line-height:1.5; color:rgba(238,240,247,.62); background:rgba(7,10,23,.46); border:1px solid rgba(229,207,147,.13); }
+  .path-progress .path-dot { color:rgba(229,207,147,.8); text-shadow:0 0 9px rgba(229,207,147,.32); }
+  .action-label { color:rgba(221,225,239,.56); }
+  .action-secondary .action-desc { color:rgba(221,225,239,.53); }
+  .fc-item { color:rgba(221,225,239,.55); }
+  .mood-index { color:rgba(221,225,239,.38); }
+  .mood-desc { color:rgba(221,225,239,.53); }
+  .hint { color:rgba(221,225,239,.46); }
+  .light-label { color:rgba(221,225,239,.46); }
+  .quiet-btn { color:rgba(221,225,239,.58); }
+  .help-intro { color:rgba(221,225,239,.62); }
+  .feedback-btn { color:rgba(221,225,239,.56); }
+  .quit { color:rgba(221,225,239,.58); }
+  #gameLayer.gentle-flow .hud { display:none; }
+  .map-canvas { z-index:14; background:linear-gradient(180deg,rgba(6,8,19,.92),rgba(12,16,36,.95)); opacity:0; visibility:hidden; pointer-events:none; transition:opacity .9s ease,visibility .9s; }
+  .map-canvas.show { opacity:1; visibility:visible; pointer-events:auto; }
+  .map-canvas.breathing { pointer-events:none; animation:mapCanvasBreathe 7s ease-in-out infinite; }
+  .map-canvas.breathing ~ .breath-layer { z-index:16; }
+  @keyframes mapCanvasBreathe { 0%,100%{opacity:.58;transform:scale(.985)}48%{opacity:1;transform:scale(1.015)} }
+  .star-map-layer { position:absolute; z-index:15; inset:0; opacity:0; visibility:hidden; pointer-events:none; transition:opacity .8s ease,visibility .8s; }
+  .star-map-layer.show { opacity:1; visibility:visible; }
+  .map-heading { position:absolute; left:24px; right:24px; top:72px; text-align:center; pointer-events:none; }
+  .map-sub { margin-top:8px; font-size:11px; line-height:1.7; color:rgba(221,225,239,.52); }
+  .map-bottom { position:absolute; left:30px; right:30px; bottom:38px; display:flex; flex-direction:column; align-items:center; pointer-events:auto; }
+  .map-progress { margin-bottom:11px; font-size:10.5px; color:rgba(221,225,239,.5); }
+  .map-finish { min-width:110px; padding:10px 21px; text-align:center; cursor:pointer; font-size:12.5px; letter-spacing:1px; color:rgba(244,232,201,.36); border:1px solid rgba(229,207,147,.14); border-radius:999px; background:rgba(7,10,23,.48); }
+  .map-finish.ready { color:rgba(244,232,201,.92); border-color:rgba(229,207,147,.4); box-shadow:0 0 14px rgba(229,207,147,.1); }
+  .map-name-card { position:absolute; z-index:2; left:29px; right:29px; top:50%; transform:translateY(-47%); padding:27px 21px 21px; text-align:center; border:1px solid rgba(229,207,147,.24); border-radius:15px 17px 14px 18px; background:rgba(12,16,38,.92); box-shadow:0 14px 45px rgba(2,4,12,.3); pointer-events:auto; }
+  .map-name-intro { margin-top:15px; font-size:11.5px; color:rgba(221,225,239,.58); }
+  .map-name { margin-top:8px; font-size:23.5px; letter-spacing:1.5px; color:#F3EAD5; }
+  .map-name-note { margin:12px auto 17px; max-width:230px; font-size:11px; line-height:1.85; color:rgba(221,225,239,.55); }
+  .map-name-actions,.map-custom { display:flex; flex-direction:column; align-items:center; gap:7px; }
+  .map-name-primary,.map-name-secondary { width:100%; box-sizing:border-box; border-radius:999px; cursor:pointer; }
+  .map-name-primary { padding:10px; font-size:12.5px; color:#171A2D; background:#E5CF93; }
+  .map-name-secondary { padding:9px 10px; border:1px solid rgba(204,210,231,.18); font-size:11.5px; color:rgba(238,240,247,.72); }
+  .map-name-skip { padding:8px 14px; cursor:pointer; font-size:10.5px; color:rgba(221,225,239,.45); }
+  .map-custom .custom-name-input { width:100%; box-sizing:border-box; }
+  .star-choice-layer,.star-place-layer { position:absolute; z-index:14; inset:0; display:flex; flex-direction:column; align-items:center; padding:78px 24px 45px; background:linear-gradient(180deg,rgba(6,8,19,.9),rgba(12,16,36,.94)); opacity:0; visibility:hidden; pointer-events:none; transition:opacity .9s ease,visibility .9s; }
+  .star-choice-layer.show,.star-place-layer.show { opacity:1; visibility:visible; pointer-events:auto; }
+  .ritual-kicker { font-size:9px; letter-spacing:2px; color:rgba(229,207,147,.52); }
+  .ritual-title { margin-top:12px; text-align:center; font-size:20px; line-height:1.55; letter-spacing:1px; color:#F3EAD5; }
+  .choice-stars { width:100%; margin-top:55px; display:flex; justify-content:space-between; align-items:center; }
+  .choice-star { width:30%; min-height:95px; display:flex; flex-direction:column; align-items:center; justify-content:center; cursor:pointer; border-radius:50% 46% 52% 48%; border:1px solid rgba(204,210,231,.12); background:radial-gradient(circle at 24% 31%,rgba(244,232,201,.032) 0,rgba(244,232,201,.032) .5px,transparent 1px) 0 0/24px 21px,rgba(255,255,255,.026); }
+  .choice-star:nth-child(1) { transform:translateY(9px) rotate(-1deg); }
+  .choice-star:nth-child(3) { transform:translateY(6px) rotate(1deg); }
+  .choice-star:active { opacity:.74; }
+  .choice-glow { font-size:34px; line-height:1; }
+  .choice-name { margin-top:12px; font-size:11.5px; letter-spacing:.5px; color:rgba(238,240,247,.68); }
+  .ritual-hint { margin-top:auto; text-align:center; font-size:10.5px; line-height:1.7; color:rgba(221,225,239,.42); }
+  .place-sky { position:relative; width:100%; height:260px; margin-top:27px; border-radius:42% 48% 44% 50%; border:1px solid rgba(204,210,231,.08); background:radial-gradient(circle at 50% 80%,rgba(99,90,148,.13),transparent 58%); }
+  .place-sky::after { content:""; position:absolute; left:12%; right:12%; bottom:31px; height:1.5px; border-radius:50%; transform:rotate(-2deg); background:linear-gradient(90deg,transparent,rgba(229,207,147,.22),transparent); }
+  .place-spot { position:absolute; width:56px; height:56px; display:flex; align-items:center; justify-content:center; cursor:pointer; }
+  .spot-left { left:8%; top:48%; }.spot-center { left:calc(50% - 28px); top:20%; }.spot-right { right:8%; top:42%; }
+  .spot-ring { width:17px; height:17px; border-radius:48% 52% 46% 54%; border:1.5px solid rgba(229,207,147,.28); box-shadow:0 0 12px rgba(229,207,147,.08); animation:spotBreathe 2.8s ease-in-out infinite; }
+  .placed-star { position:absolute; z-index:2; font-size:38px; line-height:1; animation:placedIn .9s ease both; }
+  .placed-left { left:calc(8% + 9px); top:calc(48% + 7px); }.placed-center { left:calc(50% - 19px); top:calc(20% + 6px); }.placed-right { right:calc(8% + 9px); top:calc(42% + 7px); }
+  @keyframes spotBreathe { 0%,100%{opacity:.35;transform:scale(.82)}50%{opacity:.82;transform:scale(1.12)} }
+  @keyframes placedIn { from{opacity:0;transform:scale(.42) rotate(-16deg)}to{opacity:1;transform:scale(1) rotate(0)} }
+
+  /* v7 特别星相遇与本地相遇簿 */
+  .encounter-home-link { margin:11px auto 0; padding:7px 12px; text-align:center; cursor:pointer; font-size:11px; color:rgba(229,207,147,.62); }
+  .special-meet { position:absolute; z-index:24; inset:0; display:flex; align-items:center; justify-content:center; padding:26px; background:rgba(5,7,18,.76); opacity:0; visibility:hidden; pointer-events:none; transition:opacity .7s ease,visibility .7s; }
+  .special-meet.show { opacity:1; visibility:visible; pointer-events:auto; }
+  .special-card { width:100%; max-width:280px; padding:27px 23px 21px; box-sizing:border-box; text-align:center; border:1px solid rgba(229,207,147,.24); border-radius:19px 21px 18px 22px; background:radial-gradient(circle at 23% 31%,rgba(244,232,201,.04) 0,rgba(244,232,201,.04) .5px,transparent 1px) 0 0/25px 22px,linear-gradient(155deg,#1A1D31,#0F1325); box-shadow:0 16px 50px rgba(1,3,10,.46),inset 0 1px 0 rgba(255,255,255,.05); }
+  .special-kicker { font-size:9px; letter-spacing:2px; color:rgba(229,207,147,.5); }
+  .special-orbit { position:relative; width:75px; height:75px; margin:15px auto 10px; display:flex; align-items:center; justify-content:center; border:1px solid currentColor; border-radius:50%; box-shadow:0 0 27px rgba(229,207,147,.14); animation:specialOrbit 5.6s ease-in-out infinite; }
+  .special-orbit::after { content:""; position:absolute; inset:10px; border:1px solid rgba(238,240,247,.10); border-radius:47% 53% 51% 49%; transform:rotate(17deg); }
+  .special-symbol { position:relative; z-index:1; font-size:35px; line-height:1; color:inherit; text-shadow:0 0 17px currentColor; }
+  @keyframes specialOrbit { 0%,100%{transform:scale(.94) rotate(-2deg);opacity:.72}50%{transform:scale(1.04) rotate(2deg);opacity:1} }
+  .special-name { font-size:21px; letter-spacing:1.5px; color:#F3EAD5; }
+  .special-line { margin-top:12px; font-size:13.5px; line-height:1.9; color:rgba(238,240,247,.78); }
+  .special-repeat { margin-top:10px; font-size:10.5px; color:rgba(221,225,239,.4); }
+  .special-continue { margin:19px auto 0; padding:9px 15px; border:1px solid rgba(204,210,231,.13); border-radius:999px; font-size:12px; color:rgba(221,225,239,.34); cursor:default; }
+  .special-continue.ready { color:#171A2D; background:#E5CF93; border-color:#E5CF93; cursor:pointer; }
+  .special-result { display:none; margin-top:11px; padding:12px; align-items:center; gap:10px; text-align:left; cursor:pointer; border:1px solid rgba(229,207,147,.14); border-radius:12px 14px 12px 14px; background:rgba(229,207,147,.035); }
+  .special-result-star { flex:0 0 25px; font-size:21px; text-align:center; text-shadow:0 0 10px currentColor; }
+  .special-result-copy { flex:1; min-width:0; }.special-result-kicker { font-size:10px; color:rgba(229,207,147,.68); }.special-result-line { margin-top:4px; font-size:11.5px; line-height:1.6; color:rgba(221,225,239,.58); }.special-result-arrow { font-size:18px; color:rgba(229,207,147,.42); }
+  .encounter-screen { justify-content:flex-start; padding:30px 20px 28px; overflow-y:auto; text-align:left; background:linear-gradient(180deg,#080B17,#0D1124 58%,#12162C); }
+  .encounter-screen .title { margin:12px 0 7px; font-size:26px; letter-spacing:1.5px; color:#F3EAD5; }
+  .encounter-sub { font-size:12px; line-height:1.75; color:rgba(221,225,239,.58); }
+  .encounter-list { width:100%; margin-top:24px; }
+  .encounter-card { display:flex; gap:14px; margin-bottom:10px; padding:16px; border:1px solid rgba(204,210,231,.11); border-radius:15px 18px 15px 17px; background:radial-gradient(circle at 22% 34%,rgba(238,240,247,.03) 0,rgba(238,240,247,.03) .5px,transparent 1px) 0 0/26px 22px,rgba(255,255,255,.038); }
+  .encounter-card.locked { opacity:.56; }.encounter-light { position:relative; flex:0 0 55px; height:55px; display:flex; align-items:center; justify-content:center; }.encounter-light .symbol { position:relative; z-index:1; font-size:30px; color:inherit; text-shadow:0 0 14px currentColor; }.encounter-light .ring { position:absolute; inset:4px; border:1px solid currentColor; border-radius:48% 52% 46% 54%; opacity:.26; transform:rotate(12deg); }.locked .encounter-light .symbol { color:transparent;text-shadow:none;-webkit-text-stroke:1px rgba(204,210,231,.3)}.locked .encounter-light .ring{border-style:dashed;opacity:.22}
+  .encounter-copy { flex:1; min-width:0; }.encounter-top { display:flex; justify-content:space-between; gap:8px; }.encounter-name { font-size:16px; color:rgba(243,234,213,.92); }.encounter-date { font-size:9px; color:rgba(221,225,239,.34); }.encounter-desc { margin-top:6px; font-size:10.5px; line-height:1.65; color:rgba(221,225,239,.54); }.encounter-quote { margin-top:8px; font-size:11.5px; line-height:1.65; color:rgba(229,207,147,.76); }.encounter-count { margin-top:6px; font-size:9.5px; color:rgba(221,225,239,.36); }
+  .collection-note { margin:18px 0 14px; text-align:center; font-size:10.5px; line-height:1.75; color:rgba(221,225,239,.4); }.encounter-actions { width:100%; }.encounter-back { padding:12px; text-align:center; cursor:pointer; font-size:11px; color:rgba(221,225,239,.46); }
+  /* v11.1 星空作品集：最新作品大封面，旧作按月份陈列 */
+  .diary-screen { justify-content:flex-start; padding:30px 19px 28px; overflow-y:auto; scrollbar-width:none; text-align:left; background:linear-gradient(180deg,#080B17,#0D1124 58%,#12162C); }
+  .diary-screen .title { margin:12px 0 7px; font-size:26px; letter-spacing:1.5px; color:#F3EAD5; }
+  .diary-sub { font-size:11.5px; line-height:1.7; color:rgba(221,225,239,.52); }
+  .diary-section { width:100%; margin-top:25px; display:flex; justify-content:space-between; align-items:center; font-size:12px; color:rgba(221,225,239,.6); }
+  .diary-count { letter-spacing:1.5px; color:rgba(229,207,147,.48); }
+  .diary-grid { width:100%; margin-top:13px; }
+  .diary-month + .diary-month { margin-top:25px; }
+  .diary-month-head { display:flex; align-items:center; gap:8px; margin:0 2px 10px; font-size:11px; color:rgba(229,207,147,.72); }
+  .diary-month-line { flex:1; height:1px; background:rgba(229,207,147,.11); }
+  .diary-month-count { font-size:9.5px; color:rgba(221,225,239,.4); }
+  .diary-month-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px 9px; }
+  .diary-work { min-width:0; overflow:hidden; cursor:pointer; border:1px solid rgba(204,210,231,.1); border-radius:13px 15px 13px 16px; background:rgba(255,255,255,.035); transition:transform .15s ease,border-color .15s ease; }
+  .diary-work.hero { grid-column:1/-1; border-color:rgba(229,207,147,.18); background:rgba(229,207,147,.04); }
+  .diary-work:active { transform:scale(.975); border-color:rgba(229,207,147,.24); }
+  .diary-art { position:relative; height:154px; overflow:hidden; background:linear-gradient(180deg,rgba(5,8,22,.72),rgba(25,25,47,.28)); }
+  .diary-work.hero .diary-art { height:220px; }
+  .diary-art canvas { display:block; width:100%; height:100%; }
+  .diary-number { position:absolute; left:8px; top:8px; padding:3px 6px; border:1px solid rgba(229,207,147,.15); border-radius:999px; background:rgba(5,8,22,.52); font-size:7.5px; letter-spacing:1px; color:rgba(244,232,201,.58); }
+  .diary-latest { position:absolute; right:8px; top:8px; padding:3px 7px; border:1px solid rgba(229,207,147,.16); border-radius:999px; background:rgba(5,8,22,.52); font-size:8px; color:rgba(244,232,201,.7); }
+  .diary-work-title { padding:10px 9px 0; font-family:"STKaiti","KaiTi",serif; font-size:13.5px; line-height:1.55; color:rgba(243,234,213,.94); }
+  .diary-work.hero .diary-work-title { padding-top:13px; font-size:17px; }
+  .diary-world { padding:5px 9px 0; font-size:9px; letter-spacing:.8px; color:rgba(229,207,147,.52); }
+  .diary-date { padding:3px 9px 12px; font-size:10.5px; color:rgba(221,225,239,.44); }
+  .diary-empty { width:100%; margin-top:100px; text-align:center; color:rgba(221,225,239,.55); }
+  .diary-empty .empty-star { margin-bottom:18px; font-size:33px; color:rgba(229,207,147,.72); text-shadow:0 0 18px rgba(229,207,147,.3); }
+  .diary-note { width:100%; margin:21px 0 8px; text-align:center; font-size:10px; line-height:1.7; color:rgba(221,225,239,.36); }
+  .diary-actions { width:100%; margin-top:16px; }
+  .diary-restore { display:none; margin-bottom:10px; padding:10px 12px; text-align:center; cursor:pointer; border:1px solid rgba(229,207,147,.14); border-radius:12px; background:rgba(229,207,147,.04); font-size:10.5px; color:rgba(244,232,201,.7); }
+  .autosave-preview { margin-top:9px; text-align:center; font-size:10px; color:rgba(229,207,147,.55); }
+  .preview-manage { display:flex; justify-content:center; gap:12px; margin-top:2px; font-size:10px; color:rgba(221,225,239,.45); }
+  .preview-manage span { padding:7px; cursor:pointer; }.preview-manage .danger { color:rgba(255,172,151,.46); }
+  /* v12 月光手稿：作品优先、画册式陈列、显式静止模式 */
+  .motion-preference{width:max-content;margin:13px auto 0;padding:6px 10px;border:1px solid rgba(204,210,231,.1);border-radius:999px;font-size:10px;color:rgba(221,225,239,.46);cursor:pointer}
+  .result{padding:18px 14px 28px;background:radial-gradient(ellipse at 8% 22%,rgba(42,75,132,.22),transparent 34%),radial-gradient(ellipse at 88% 70%,rgba(72,62,112,.14),transparent 38%),radial-gradient(circle at 52% 8%,rgba(23,54,102,.24),transparent 30%),linear-gradient(176deg,#061027,#0A1835 54%,#131A39)}
+  .manuscript-card{position:relative;padding:22px 11px 22px 14px;border-color:transparent;border-radius:18px 15px 20px 16px;background:radial-gradient(circle at 18% 25%,rgba(237,221,186,.025) 0,rgba(237,221,186,.025) .5px,transparent 1px) 0 0/16px 14px,radial-gradient(ellipse at 8% 38%,rgba(42,74,130,.13),transparent 39%),radial-gradient(ellipse at 82% 74%,rgba(211,177,104,.04),transparent 34%),radial-gradient(ellipse at 66% 12%,rgba(34,54,102,.15),transparent 30%),rgba(255,255,255,.018);box-shadow:0 17px 50px rgba(1,3,10,.28)}
+  .manuscript-card:before{content:"";position:absolute;left:18px;top:0;width:54%;height:1px;background:linear-gradient(90deg,rgba(229,207,147,.2),rgba(229,207,147,.04),transparent);transform:rotate(-.35deg);pointer-events:none}
+  .manuscript-card .card-kicker{margin-left:10px;text-align:left;font-size:11px;letter-spacing:2.5px;color:rgba(229,207,147,.72)}
+  .manuscript-card .card-ornament{display:flex;align-items:center;justify-content:flex-start;gap:7px;margin:10px 0 15px 20px}.manuscript-card .card-ornament:before,.manuscript-card .card-ornament:after{content:"";height:1px;background:linear-gradient(90deg,transparent,rgba(229,207,147,.26))}.manuscript-card .card-ornament:before{width:24px}.manuscript-card .card-ornament:after{width:62px;transform:rotate(-1deg) scaleX(-1)}
+  .manuscript-card .artwork-frame{overflow:hidden;margin:0;padding:0;min-height:320px;border:0;border-radius:14px 16px 12px 18px;background:linear-gradient(180deg,rgba(3,7,20,.96),rgba(14,19,43,.86));box-shadow:inset 0 0 55px rgba(67,91,149,.16),0 14px 38px rgba(1,3,10,.42),0 0 0 1px rgba(229,207,147,.055)}
+  .manuscript-card .artwork-frame:after{content:"";position:absolute;inset:5px;border:1px solid rgba(229,207,147,.1);border-radius:11px 14px 10px 15px;pointer-events:none}.manuscript-card .artwork-frame canvas{height:320px}.manuscript-card .artwork-edition{position:absolute;z-index:2;left:20px;top:14px;margin:0;font-size:9px}
+  .moon-boat-mark{position:absolute;right:15px;bottom:11px;width:42px;height:31px;opacity:.26}.moon-boat-mark i{position:absolute;left:11px;top:0;width:19px;height:19px;border:1px solid rgba(244,232,201,.72);border-top-color:transparent;border-radius:50%;transform:rotate(36deg)}.moon-boat-mark span{position:absolute;left:3px;right:3px;bottom:2px;height:6px;border-bottom:1px solid rgba(184,194,226,.48);border-radius:50%}
+  .work-identity{position:relative;padding:17px 11px 0 8px;text-align:left}.work-identity .artwork-name{max-width:94%;font-size:18.5px;line-height:1.55;letter-spacing:1px;text-align:left;text-shadow:0 2px 9px rgba(1,3,10,.22)}.title-bracket{display:inline-block;margin:0 1px;font-size:.86em;color:rgba(231,218,187,.43);transform:translateY(-.5px)}.title-copy{color:rgba(246,239,221,.94)}.animal-seal{display:flex;align-items:center;justify-content:flex-end;gap:9px;width:90%;margin:8px 5px 0 auto;text-align:left;transform:rotate(-.18deg)}.seal-ring{position:relative;width:31px;height:31px;display:flex;align-items:center;justify-content:center;border:1px solid rgba(229,207,147,.56);border-radius:48% 52% 46% 54%;transform:rotate(-4deg);color:rgba(244,232,201,.88)}.seal-doodle-canvas{position:relative;z-index:1;display:block;width:24px;height:24px;transform:rotate(4deg)}.seal-ring i{position:absolute;right:-3px;top:-5px;font-style:normal;font-size:7px}.animal-seal strong,.animal-seal small{display:block;font-weight:400}.animal-seal strong{font-size:10.5px;letter-spacing:1px;color:rgba(244,232,201,.72)}.animal-seal small{margin-top:2px;font-size:9px;color:rgba(221,225,239,.36)}
+  .scene-signature{max-width:84%;margin:8px 0 0 4px;display:flex;align-items:baseline;gap:9px}.scene-signature span{font-size:10px;letter-spacing:1.8px;color:rgba(229,207,147,.72)}.scene-signature small{font-size:9px;line-height:1.55;color:rgba(221,225,239,.36)}
+  .manuscript-card .artwork-voice{position:relative;margin:23px 0 0 14px;padding:18px 14px 15.5px 16px;text-align:left;border:0;border-radius:0;background:radial-gradient(ellipse at 28% 58%,rgba(73,96,151,.035),transparent 62%)}.manuscript-card .artwork-voice:before{content:"";position:absolute;left:0;top:0;width:58%;height:1px;background:linear-gradient(90deg,rgba(229,207,147,.25),rgba(229,207,147,.08) 70%,transparent);transform:rotate(-.7deg)}.manuscript-card .artwork-voice:after{display:none}.manuscript-card .artwork-voice-kicker{margin:0 0 13.5px 1px;font-size:9.5px;letter-spacing:2.5px}.manuscript-card .artwork-voice-line{max-width:274px;margin:0;white-space:pre-line;font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Hiragino Sans GB","Noto Sans CJK SC","Microsoft YaHei",sans-serif;font-size:13.5px;font-weight:400;line-height:1.9;letter-spacing:.25px;color:rgba(239,233,217,.79)}.manuscript-card #artworkVoiceLines .artwork-voice-line:nth-child(even){max-width:253px;margin-left:10px}.manuscript-card .artwork-voice-line+.artwork-voice-line{margin-top:7px}.manuscript-card .artwork-voice-note{max-width:245px;margin:12px 0 0 8px;color:rgba(221,225,239,.31)}.manuscript-card .artwork-replay{border:0;background:transparent;margin-top:17px}.manuscript-card .firework-note{max-height:none;margin-top:4px;color:rgba(244,232,201,.45)}
+  .manuscript-card .result-actions{margin:18px 5px 0;gap:8px}.manuscript-card .autosave-preview{order:2;margin:0 0 2px}.manuscript-card #btnShare{order:3;width:100%}.details-toggle{margin:15px auto 0;padding:8px;text-align:center;font-size:10.5px;color:rgba(221,225,239,.44);cursor:pointer}.result-details{overflow:hidden;max-height:0;opacity:0;transition:max-height .4s ease,opacity .3s ease}.result-details.show{max-height:560px;opacity:1}.result-details .artwork-meta{margin-top:10px}.result-details .artwork-meta i{font-style:normal}.result-details .secondary-actions{justify-content:center;margin-top:10px}.result-details .quiet-btn{width:auto}.result-details .danger{color:rgba(225,169,169,.5)}
+  .diary-screen>.eyebrow{text-transform:none;letter-spacing:1.5px}.diary-section{padding-bottom:9px;border-bottom:1px solid rgba(229,207,147,.08)}.diary-month{position:relative}.diary-month-head:before{content:"☾";font-size:18px;color:rgba(229,207,147,.62)}.diary-work{border-color:transparent;background:rgba(255,255,255,.018);box-shadow:0 9px 24px rgba(1,3,10,.16)}.diary-work:nth-child(even){transform:rotate(.22deg)}.diary-work:nth-child(odd){transform:rotate(-.18deg)}.diary-number,.diary-latest{border:0}.diary-count:before{content:"共 "}.diary-count:after{content:" 幅"}
+  .reduced-motion *{animation:none!important;transition:none!important}.reduced-motion .meteor{display:none}.reduced-motion .bg-star{opacity:.28!important}
+  @media (prefers-reduced-motion:reduce) {
+    .special-orbit,.moon-orbit,.moon-orbit-star,.preview-hero.is-entering .moon-halo,.preview-hero.is-entering .moon-orbit,.preview-hero.is-entering .moon-orbit-star,.action-primary.is-entering .action-arrow{animation:none}
+    .preview-path{transition:opacity .2s ease}
+    .firework-note{transition:none}
+    .finale-layer{transition:none}
+  }
+</style>
+<style>
+  /* 正式网页游戏：移动端使用完整视口，桌面端保留一页安静的画框。 */
+  html, body { width:100%; min-height:100%; overflow:hidden; overscroll-behavior:none; }
+  body { min-height:100dvh; padding:16px; -webkit-tap-highlight-color:transparent; }
+  .side { display:none!important; }
+  .phone { width:min(430px,calc(100vw - 32px)); height:min(860px,calc(100dvh - 32px)); }
+  .share-actions { display:flex; gap:10px; margin-top:12px; }
+  .share-action {
+    min-height:44px; padding:9px 18px; display:flex; align-items:center; justify-content:center;
+    border:1px solid rgba(255,214,107,.38); border-radius:999px; cursor:pointer;
+    font-size:12.5px; letter-spacing:1.5px; color:rgba(255,235,189,.92);
+    background:rgba(255,214,107,.1);
+  }
+  .share-action.secondary { color:rgba(233,234,247,.62); border-color:rgba(233,234,247,.2); background:rgba(255,255,255,.03); }
+  .share-action:active { transform:scale(.98); }
+  [role="button"]:focus-visible { outline:2px solid rgba(255,226,151,.88); outline-offset:3px; }
+  @media (max-width:600px) {
+    body { display:block; min-height:100dvh; padding:0; }
+    .phone {
+      width:100vw; max-width:none; height:100dvh; max-height:none;
+      border:0; border-radius:0; box-shadow:none;
+    }
+    .screen { padding-left:max(24px,env(safe-area-inset-left)); padding-right:max(24px,env(safe-area-inset-right)); }
+    .preview-hero { padding-top:max(28px,env(safe-area-inset-top)); }
+    .preview-main { padding-bottom:max(28px,env(safe-area-inset-bottom)); }
+    .hud { top:calc(24px + env(safe-area-inset-top)); }
+    .feedback-controls { top:calc(18px + env(safe-area-inset-top)); left:max(12px,env(safe-area-inset-left)); }
+    .feedback-btn { min-height:34px; display:flex; align-items:center; }
+    .quit { top:calc(20px + env(safe-area-inset-top)); right:max(14px,env(safe-area-inset-right)); min-height:34px; display:flex; align-items:center; }
+    .result,.diary-screen,.help-screen { padding-top:max(26px,env(safe-area-inset-top)); padding-bottom:max(28px,env(safe-area-inset-bottom)); }
+    .share-layer,.goodnight { padding-top:env(safe-area-inset-top); padding-bottom:env(safe-area-inset-bottom); }
+    .share-inner canvas { width:min(72vw,300px); height:auto; aspect-ratio:3/4; }
+  }
+</style>
+</head>
+<body>
+
+<div class="phone">
+  <canvas id="cv"></canvas>
+
+  <!-- 开始屏 -->
+  <div class="screen start-screen" id="scrStart">
+    <div class="ambient-orb preview-orb-one"></div>
+    <div class="ambient-orb preview-orb-two"></div>
+    <div class="meteor"></div>
+    <div class="preview-hero" id="previewHero">
+      <div class="hero-art" id="moonEntry">
+        <div class="preview-path path-one"><span>✦</span></div>
+        <div class="preview-path path-two"><span>·</span></div>
+        <div class="preview-path path-three"><span>✦</span></div>
+        <div class="moon-area moon-entry">
+          <div class="moon-halo"></div>
+          <div class="moon-scribble scribble-one"></div>
+          <div class="moon-scribble scribble-two"></div>
+          <div class="moon-orbit"><span class="moon-orbit-star">✦</span></div>
+          <canvas id="moonCanvas" width="66" height="66"></canvas>
+        </div>
+      </div>
+      <div class="hero-tap" id="heroTap">轻触星光，开始今晚的作品</div>
+      <div class="eyebrow moon-name" id="moonName"></div>
+      <div class="title display-type">星星回家啦</div>
+      <div class="title-rule">✦</div>
+      <div class="sub" id="subGreeting">今晚，不需要努力变好。<br>给今晚的心情，留一分钟。</div>
+    </div>
+    <div class="preview-main">
+      <div class="action-label">今晚的创作</div>
+      <div class="action-card action-primary" id="btnStart">
+        <div><div class="action-edition" id="homeEdition">今晚第 01 幅</div><div class="action-title" id="homeActionTitle">牵星入夜</div><div class="action-desc">轻轻牵动五颗星，让它们在呼吸后开成花火 · 约 1 分钟</div><div class="creation-path"><span>遇见星光</span><i></i><span>轻轻牵星</span><i></i><span>放回夜空</span></div></div>
+        <div class="action-arrow">›</div>
+      </div>
+      <div class="sleep-boundary">一晚一幅就够了，完成后就去睡。</div>
+      <div class="action-grid">
+        <div class="action-card action-secondary" id="btnBreathe"><div class="action-symbol">○</div><div class="action-title small" id="breatheTitle">安静呼吸 · 1 分钟</div><div class="action-desc">跟着光慢慢呼气</div></div>
+        <div class="action-card action-secondary" id="btnDiaryTip"><div class="action-symbol">✦</div><div class="action-title small" id="homeDiaryLabel">星空作品集</div><div class="action-desc">回看、重播与再次分享作品</div></div>
+      </div>
+      <div class="encounter-home-link" id="btnEncounters">遇见过的星星 ›</div>
+      <div class="motion-preference" id="btnMotionHome">动态效果 · 轻柔</div>
+      <div class="help-link" id="btnHelp">需要更多帮助 ›</div>
+    </div>
+  </div>
+
+  <!-- 特殊星相遇簿（作品保存在当前浏览器） -->
+  <div class="screen encounter-screen" id="scrEncounters" style="display:none">
+    <div class="eyebrow">STARS WE HAVE MET</div>
+    <div class="title display-type">遇见过的星星</div>
+    <div class="encounter-sub" id="encounterSubtitle"></div>
+    <div class="encounter-list" id="encounterList"></div>
+    <div class="collection-note">这里没有完成率，也没有错过。<br>重复相遇时，它会带来一句新的话。</div>
+    <div class="encounter-actions">
+      <div class="btn" id="encounterCatch">今晚再去看看</div>
+      <div class="encounter-back" id="encounterBack">返回首页</div>
+    </div>
+  </div>
+
+  <!-- 星空作品集（使用浏览器本地存储） -->
+  <div class="screen diary-screen" id="scrDiary" style="display:none">
+    <div class="eyebrow">每一个夜晚，都有自己的光</div>
+    <div class="title display-type">星空作品集</div>
+    <div class="diary-sub" id="diarySubtitle">每一晚亲手牵过的星光，都在这里。</div>
+    <div class="diary-section" id="diarySection"><span>我的月光画册</span><span class="diary-count" id="diaryCount"></span></div>
+    <div class="diary-grid" id="diaryGrid"></div>
+    <div class="diary-empty" id="diaryEmpty" style="display:none"><div class="empty-star">✦</div><div>这里还没有作品。</div><div>今晚可以先牵动一颗星。</div></div>
+    <div class="diary-note" id="diaryNote">轻触一页，回到那晚的星光。</div>
+    <div class="diary-actions">
+      <div class="btn" id="diaryCreate">去牵星</div>
+      <div class="diary-restore" id="diaryRestore">找回最近删除的作品</div>
+      <div class="encounter-back" id="diaryBack">返回首页</div>
+    </div>
+  </div>
+
+  <!-- 专业支持页 -->
+  <div class="screen help-screen" id="scrHelp" style="display:none">
+    <div class="eyebrow">YOU DO NOT HAVE TO HOLD IT ALONE</div>
+    <div class="title display-type">需要更多帮助时</div>
+    <div class="help-intro">有些时刻，不必只靠自己撑过去。</div>
+    <div class="help-card">
+      <div class="card-index">01</div>
+      <h3>先找一个人陪你</h3>
+      <p>可以联系一位你信任的人，直接告诉对方：“我现在不太好，能陪我待一会儿吗？”</p>
+    </div>
+    <div class="help-card hotline">
+      <div class="card-index">02</div>
+      <h3>中国大陆 · 全国统一心理援助热线</h3>
+      <div class="help-number">12356</div>
+      <p>可咨询心理困扰、情绪问题，并获得心理疏导与危机干预支持。</p>
+      <div class="btn" id="btnCallPreview">拨打 12356</div>
+      <div class="help-source" id="helpCallNote"></div>
+    </div>
+    <div class="help-card urgent">
+      <div class="card-index">03</div>
+      <h3>如果此刻有立即危险</h3>
+      <p>如果你正在考虑伤害自己或他人，或无法保证此刻安全，请不要独处。立即联系当地急救或报警服务，或请身边可信任的人陪你前往最近的急诊。</p>
+    </div>
+    <div class="help-card">
+      <div class="card-index">04</div>
+      <h3>如果你不在中国大陆</h3>
+      <p>请联系所在地的心理援助热线、紧急服务或就近医疗机构。</p>
+    </div>
+    <div class="help-source">热线信息依据国家卫生健康委公开信息整理。本页不能替代专业评估或紧急救援。</div>
+    <div class="btn ghost" id="helpBack">回到首页</div>
+  </div>
+
+  <!-- 心情选择屏 -->
+  <div class="screen" id="scrMood" style="display:none">
+    <div class="eyebrow">CHOOSE A LITTLE COMPANY</div>
+    <div class="question display-type">今晚，你更需要<br>哪一种陪伴？</div>
+    <div class="head-rule"></div>
+    <div class="mood-grid" id="moodGrid"></div>
+    <div class="hint">没有标准答案，选一个最接近的就好。</div>
+  </div>
+
+  <!-- 游戏浮层 -->
+  <div id="gameLayer" style="display:none">
+    <canvas id="mapCanvas" class="map-canvas"></canvas>
+    <div class="hud">
+      <div class="mode-label" id="modeLabel" style="display:none">安静呼吸</div>
+      <div class="time-text" id="timeText"></div>
+      <div class="time-bar"><div class="time-bar-inner" id="timeBar" style="width:100%"></div></div>
+    </div>
+    <div class="quit" id="btnQuit">先到这里</div>
+    <div class="feedback-controls">
+      <div class="feedback-btn" id="btnSound">声音 · 关</div>
+      <div class="feedback-btn" id="btnVibrate">轻震 · 关</div>
+      <div class="feedback-btn" id="btnMotionGame">动态 · 轻柔</div>
+    </div>
+    <div class="pause-whisper" id="pauseWhisper">星星太多了的话，<span class="pw-line">可以停一下</span></div>
+    <div class="game-guide" id="gameGuide">
+      <div class="guide-line"></div>
+      <div>按住星星，轻轻带它走一段</div>
+      <div class="guide-sub">松开手，剩下的路交给星星</div>
+    </div>
+    <div class="path-progress" id="pathProgress"><span class="path-dot">✦</span><span id="pathProgressText">按住发光的星星，轻轻牵动它</span></div>
+    <div class="toast" id="toast"></div>
+    <div class="special-meet" id="specialMeet">
+      <div class="special-card">
+        <div class="special-kicker">今晚来访</div>
+        <div class="special-orbit" id="specialOrbit"><div class="special-symbol">✦</div></div>
+        <div class="special-name display-type" id="specialName"></div>
+        <div class="special-line" id="specialLine"></div>
+        <div class="special-repeat" id="specialRepeat"></div>
+        <div class="special-continue" id="specialContinue">让它停一会儿</div>
+      </div>
+    </div>
+    <div class="star-map-layer" id="starMapLayer">
+      <div class="map-heading" id="mapHeading">
+        <div class="ritual-kicker">今晚的小小夜空</div>
+        <div class="ritual-title display-type">把这些光，连成今晚星图</div>
+        <div class="map-sub">点按或滑过星点，没有正确答案。</div>
+      </div>
+      <div class="map-bottom" id="mapBottom">
+        <div class="map-progress" id="mapProgress">先从任意一颗星开始</div>
+        <div class="map-finish" id="mapFinish">连好了</div>
+      </div>
+      <div class="map-name-card" id="mapNameCard" style="display:none">
+        <div class="ritual-kicker">YOUR NIGHT SKY</div>
+        <div class="map-name-intro">你画下了今晚独有的星空，它看起来像</div>
+        <div class="map-name display-type" id="mapName">「归巢鸟」</div>
+        <div class="map-name-note">它不预言什么，只替你记住今晚的一点光。</div>
+        <div class="map-name-actions" id="mapNameActions">
+          <div class="map-name-primary" id="mapKeepName">收下这幅作品</div>
+          <div class="map-name-secondary" id="mapOpenCustom">给作品取个名字</div>
+          <div class="map-name-skip" id="mapSkipName">不取名，也可以</div>
+        </div>
+        <div class="map-custom" id="mapCustom" style="display:none">
+          <input class="custom-name-input" id="mapCustomInput" maxlength="8" placeholder="写下 1–8 个字">
+          <div class="custom-name-error" id="mapCustomError"></div>
+          <div class="map-name-primary" id="mapCustomSubmit">就叫这个名字</div>
+        </div>
+      </div>
+    </div>
+    <div class="breath-layer" id="breathLayer" style="display:none">
+      <div class="breath-round" id="breathRound">1 / 3</div>
+      <div class="breath-phase" id="breathPhase">吸气</div>
+      <div class="breath-sub">不用刻意吸得很深，按舒服的节奏就好。</div>
+    </div>
+    <div class="finale-layer" id="finaleLayer">
+      <div class="finale-kicker">星光正在回到夜空</div>
+      <div class="finale-text display-type" id="finaleText"></div>
+    </div>
+
+    <!-- 给情绪命名浮层 -->
+    <div class="name-layer" id="nameLayer">
+      <div class="name-q" id="nameQ">如果这颗星星是一种感受，<br>它更像是？</div>
+      <div class="name-options" id="nameOpts"></div>
+      <div class="custom-name-panel" id="customNamePanel" style="display:none">
+        <input class="custom-name-input" id="customNameInput" maxlength="8" placeholder="写下 1–8 个字">
+        <div class="custom-name-error" id="customNameError"></div>
+        <div class="custom-name-actions">
+          <div class="custom-name-btn secondary" id="customNameBack">返回选择</div>
+          <div class="custom-name-btn" id="customNameSubmit">就叫这个名字</div>
+        </div>
+      </div>
+      <div class="name-result" id="nameResult" style="display:none">
+        <div class="line">你接住了一颗</div>
+        <div class="strong" id="nameStrong"></div>
+        <div class="fb" id="nameFb"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 安静呼吸模式的晚安收尾 -->
+  <div class="goodnight" id="goodnightBreathe">
+    <div class="gn-moon"></div>
+    <div class="gn-line gn-1">晚安。</div>
+    <div class="gn-line gn-2" id="gnBreatheRounds"></div>
+    <div class="gn-line gn-3">现在，可以闭上眼睛了。</div>
+    <div class="gn-actions" id="gnBreatheMore" style="display:none">
+      <div class="gn-back" id="btnBreatheMore">再陪自己两分钟</div>
+      <div class="gn-back secondary" id="gnBreatheBack">到这里就好</div>
+    </div>
+    <div class="gn-back" id="gnBreatheHome">回到首页</div>
+  </div>
+
+  <!-- 结果屏 -->
+  <div class="screen result" id="scrResult" style="display:none">
+    <div class="card manuscript-card">
+      <div class="card-kicker">今晚的星星，回家了</div>
+      <div class="card-ornament">✦</div>
+      <div class="artwork-frame" id="artworkFrame" style="display:none">
+        <div class="artwork-edition" id="resultArtworkEdition">月光手稿 · 第 01 幅</div>
+        <canvas id="resultArtwork"></canvas>
+        <div class="moon-boat-mark"><i></i><span></span></div>
+      </div>
+      <div class="work-identity" id="workIdentity" style="display:none">
+        <div class="artwork-name display-type" id="resultArtworkName"><span class="title-bracket">《</span><span class="title-copy" id="resultArtworkNameText"></span><span class="title-bracket">》</span></div>
+        <div class="scene-signature"><span id="resultSceneName">森林夜</span><small id="resultSceneLine">树影把喧闹留在远处，夜色慢慢安静。</small></div>
+        <div class="animal-seal"><div class="seal-ring"><canvas id="sealDoodle" class="seal-doodle-canvas" aria-label="动物简笔画星印"></canvas><i>✦</i></div><div><strong id="sealName">晚风鹿星印</strong><small>今晚作品的小小落款</small></div></div>
+      </div>
+      <div class="artwork-voice" id="artworkVoice" style="display:none">
+        <div class="artwork-voice-kicker">今晚留下的话</div>
+        <div id="artworkVoiceLines"></div>
+        <div class="artwork-voice-note" id="artworkVoiceNote"></div>
+      </div>
+      <div id="resLines"></div>
+      <div class="divider" id="resultDivider"></div>
+      <div id="resHints"></div>
+      <div class="artwork-replay" id="artworkReplay"><span class="replay-star">✦</span><span id="artworkReplayText">再看一次星星回到夜空</span></div>
+      <div class="firework-note show" id="fireworkNote">五朵花火散开后，会在夜空里合成今晚的小动物。</div>
+      <div class="result-actions">
+        <div class="btn" id="btnGoodnight">收好今晚，去睡吧</div>
+        <div class="autosave-preview">已安静收藏到星空作品集</div>
+        <div class="btn ghost compact" id="btnShare">生成今晚的作品海报</div>
+      </div>
+      <div class="details-toggle" id="btnResultDetails">作品信息与管理⌄</div>
+      <div class="result-details" id="resultDetails">
+        <div class="artwork-meta"><span id="resultArtworkDate"></span><span id="resultArtworkStyle"></span><span>第 <i id="originalNumber">01</i> 幅</span></div>
+        <div class="light-box"><div class="light-label">今晚收下的光</div><div class="dots" id="resDots"></div></div>
+        <div class="special-result" id="resSpecial"><div class="special-result-star" id="resSpecialStar">✦</div><div class="special-result-copy"><div class="special-result-kicker" id="resSpecialName"></div><div class="special-result-line" id="resSpecialLine"></div></div><div class="special-result-arrow">›</div></div>
+        <div class="secondary-actions"><div class="quiet-btn" id="btnResultRename">修改作品名</div><div class="quiet-btn" id="btnAgain">重新画</div><div class="quiet-btn danger" id="btnResultDelete">删除</div></div>
+        <div class="motion-preference" id="btnMotionResult">动态效果 · 轻柔</div>
+        <div class="quiet-btn" id="btnResultHome">回到首页</div>
+      </div>
+    </div>
+    <!-- 分享卡片浮层 -->
+    <div class="share-layer" id="shareLayer">
+      <div class="share-inner">
+        <canvas id="shareCanvas" width="375" height="500"></canvas>
+        <div class="share-tip" id="shareTip">海报只保留今晚的星空、作品名与星印，不展示心情选择。</div>
+        <div class="share-actions">
+          <div class="share-action" id="shareSave">保存或分享海报</div>
+          <div class="share-action secondary" id="shareClose">先不分享了</div>
+        </div>
+      </div>
+    </div>
+    <div class="goodnight" id="goodnight">
+      <div class="gn-moon"></div>
+      <div class="gn-line gn-1">晚安。</div>
+      <div class="gn-line gn-2">今晚的星星都收好了。</div>
+      <div class="gn-line gn-3">现在，可以闭上眼睛了。</div>
+      <div class="gn-back" id="gnBack">回到首页</div>
+    </div>
+  </div>
+</div>
+
+<!-- 共享模块保留独立作用域，以便网页与原游戏引擎保持一致。 -->
+<script>
+(async () => {
+  const loadMod = async (url, requireShim) => {
+    const src = await fetch(url).then((r) => {
+      if (!r.ok) throw new Error('load failed ' + url + ' status=' + r.status);
+      return r.text();
+    });
+    const m = { exports: {} };
+    new Function('module', 'require', src)(
+      m,
+      requireShim || (() => { throw new Error('require is not available'); })
+    );
+    return m.exports;
+  };
+
+  window.specialStars = await loadMod('./utils/specialStars.js?v=1');
+  window.animalSeal = await loadMod('./utils/animalSeal.js?v=17');
+  window.animalMasters = await loadMod('./utils/animalMasters.js?v=21');
+  window.lightBrush = await loadMod('./utils/lightBrush.js?v=54', (p) => {
+    if (p.indexOf('animalSeal') >= 0) return window.animalSeal;
+    throw new Error('preview require: unknown lightBrush module ' + p);
+  });
+  window.StarGame = (await loadMod('./utils/game-engine.js?v=38', (p) => {
+    if (p.indexOf('specialStars') >= 0) return window.specialStars;
+    if (p.indexOf('lightBrush') >= 0) return window.lightBrush;
+    throw new Error('preview require: unknown module ' + p);
+  })).StarGame;
+  window.starTexts = await loadMod('./utils/starTexts.js?v=14');
+  window.summary = await loadMod('./utils/generateSummary.js?v=16', (p) => {
+    if (p.indexOf('starTexts') >= 0) return window.starTexts;
+    throw new Error('preview require: unknown module ' + p);
+  });
+  window.artworkVoice = await loadMod('./utils/artworkVoice.js?v=3');
+  window.artworkTitles = await loadMod('./utils/artworkTitles.js?v=3', (p) => {
+    if (p.indexOf('artworkVoice') >= 0) return window.artworkVoice;
+    throw new Error('preview require: unknown module ' + p);
+  });
+  window.__modsReady = true;
+})().catch((e) => {
+  document.title = '模块加载失败: ' + e.message;
+});
+</script>
+<script>
+  var engine = null, currentMood = 'calm';
+  var DURATION = 60; // 预览默认 60 秒，与小程序一致（可用 ?t=秒数 覆盖）
+  var qs = new URLSearchParams(location.search);
+  if (qs.get('t')) DURATION = parseInt(qs.get('t'), 10);
+
+  var $ = function (id) { return document.getElementById(id); };
+  var escapeHtml = function (value) {
+    return String(value).replace(/[&<>"']/g, function (ch) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch];
+    });
+  };
+  var cv = $('cv'), ctx = cv.getContext('2d');
+  var mapCv = $('mapCanvas'), mapCtx = mapCv.getContext('2d');
+  var toastTimer = null, guideTimer = null, ritualTimer = null, closingTimer = null, caughtCount = 0, raf = null, lastTs = 0, currentBreathName = '', whisperTimer = null, targetMode = 'game', currentBreathRounds = 3;
+  var collectedStars = [], closingFlow = false, targetCatchCount = 6;
+  var mapNodes = [], mapPath = [], starMapName = '', mapNameIndex = 0, mapDragging = false, pathDrawing = false;
+  var STAR_MAP_NAMES = ['归巢鸟', '枕边小船', '月芽', '沉睡的小鲸', '微光树', '慢慢云', '回声岛', '晚风铃'];
+  var STAR_CHOICE_NAMES = {
+    tired: '雾蓝星', anxious: '紫雾星', sad: '雨蓝星',
+    hope: '暖金星', calm: '月白星'
+  };
+  var breatheCompleted = localStorage.getItem('breatheCompletedOnce') === '1';
+  var BREATHE_DURATION = qs.get('t') ? DURATION : (breatheCompleted ? 180 : 60);
+  var breatheContinuation = false;
+  var tonightSpecial = null, specialEncounter = null, specialReadyTimer = null, specialAutoTimer = null;
+  var currentResultArtwork = null, currentArtworkStyle = null, currentResultRecord = null, artworkReplayRaf = null, artworkReplayPlaying = false, artworkReplayDone = false;
+  var resultArtworkNumberLabel = '01', resultArtworkDateLabel = '';
+  var previewReplaceRecord = null;
+  var heroEnteringPreview = false, heroEntryTimer = null;
+  var reducedMotion = localStorage.getItem('reducedMotionV1') === '1' || !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+
+  function getAnimalSeal(title) {
+    return window.animalSeal.getAnimalSeal(title);
+  }
+
+  // 仅用于开发期逐只检查16种烟花角色，例如 ?animal=cat；正式小程序不读取此参数。
+  function getPreviewAnimalOverride() {
+    var icon = String(qs.get('animal') || '').toLowerCase();
+    if (!icon || !window.animalSeal || !Array.isArray(window.animalSeal.PRIMARY_ANIMALS)) return null;
+    var entry = window.animalSeal.PRIMARY_ANIMALS.find(function (item) { return item[2] === icon; });
+    return entry ? { name: entry[0], character: entry[1], icon: entry[2] } : null;
+  }
+
+  function drawSealDoodle(seal) {
+    var canvas = $('sealDoodle');
+    if (!canvas || !seal || !window.animalSeal) return;
+    var dpr = window.devicePixelRatio || 2;
+    var width = canvas.clientWidth || 24;
+    var height = canvas.clientHeight || 24;
+    canvas.width = Math.round(width * dpr);
+    canvas.height = Math.round(height * dpr);
+    var sealCtx = canvas.getContext('2d');
+    sealCtx.scale(dpr, dpr);
+    sealCtx.clearRect(0, 0, width, height);
+    window.animalSeal.drawAnimalDoodle(sealCtx, seal.icon, width / 2, height / 2, Math.min(width, height) - 1, 'rgba(244,232,201,.9)');
+  }
+
+  function applyMotionPreference() {
+    var phone = document.querySelector('.phone');
+    if (phone) phone.classList.toggle('reduced-motion', reducedMotion);
+    ['btnMotionHome','btnMotionResult'].forEach(function (id) { if ($(id)) $(id).textContent = '动态效果 · ' + (reducedMotion ? '静止' : '轻柔'); });
+    if ($('btnMotionGame')) $('btnMotionGame').textContent = '动态 · ' + (reducedMotion ? '静止' : '轻柔');
+    if (engine && engine.setReducedMotion) engine.setReducedMotion(reducedMotion);
+  }
+
+  function toggleMotionPreference() {
+    reducedMotion = !reducedMotion;
+    localStorage.setItem('reducedMotionV1', reducedMotion ? '1' : '0');
+    if (reducedMotion) stopArtworkReplay(true);
+    applyMotionPreference();
+  }
+
+  function formatArtworkDate(timestamp) {
+    var date = new Date(timestamp);
+    var month = String(date.getMonth() + 1).padStart(2, '0');
+    var day = String(date.getDate()).padStart(2, '0');
+    return date.getFullYear() + '.' + month + '.' + day;
+  }
+
+  function nextPreviewArtworkNumber() {
+    var max = getPreviewRecords().reduce(function (value, record) {
+      return Math.max(value, Number(record.artworkNumber) || 0);
+    }, 0);
+    return String(max + 1).padStart(2, '0');
+  }
+
+  function getPreviewRecords() {
+    try {
+      var records = JSON.parse(localStorage.getItem('starRecords') || '[]');
+      var titleChanged = false;
+      if (Array.isArray(records) && window.artworkTitles) {
+        var keptTitles = records.map(function (record) {
+          return record && (record.customTitle || !artworkTitles.isLegacyAutoTitle(record.starMapName))
+            ? record.starMapName
+            : '';
+        }).filter(Boolean);
+        records.forEach(function (record) {
+          if (!record || record.customTitle || !artworkTitles.isLegacyAutoTitle(record.starMapName)) return;
+          var upgraded = artworkTitles.upgradeLegacyArtworkTitle(record.starMapName, record.pathArtwork, keptTitles);
+          if (!upgraded || upgraded === record.starMapName) return;
+          record.starMapName = upgraded;
+          record.autoTitleVersion = 2;
+          keptTitles.push(upgraded);
+          if (record.pathArtwork) {
+            var gentleSeal = getAnimalSeal(upgraded);
+            record.pathArtwork.sealIcon = gentleSeal.icon;
+            record.pathArtwork.sealName = gentleSeal.name;
+          }
+          titleChanged = true;
+        });
+        if (titleChanged) localStorage.setItem('starRecords', JSON.stringify(records));
+      }
+      var sceneChanged = false;
+      (Array.isArray(records) ? records : []).forEach(function (record) {
+        if (!record || !record.pathArtwork || !window.lightBrush) return;
+        var sceneIcon = record.pathArtwork.sealIcon || getAnimalSeal(record.starMapName || '').icon;
+        var scene = lightBrush.getAnimalScene(sceneIcon);
+        if (record.sceneKind !== scene.key || record.sceneName !== scene.name) {
+          record.sceneKind = scene.key;
+          record.sceneName = scene.name;
+          sceneChanged = true;
+        }
+      });
+      if (sceneChanged) localStorage.setItem('starRecords', JSON.stringify(records));
+      return Array.isArray(records) ? records.filter(function (record) {
+        return record && record.pathArtwork && record.pathArtwork.paths && record.pathArtwork.paths.length;
+      }).sort(function (a, b) { return Number(b.timestamp || 0) - Number(a.timestamp || 0); }) : [];
+    } catch (e) {
+      return [];
+    }
+  }
+
+  function compactPreviewArtwork(artwork) {
+    if (!artwork || !Array.isArray(artwork.paths)) return artwork;
+    return Object.assign({}, artwork, { paths: artwork.paths.map(function (path) {
+      var points = path.points || [];
+      var compact = [];
+      var count = Math.min(72, points.length);
+      for (var i = 0; i < count; i++) {
+        var point = points[Math.round((i / Math.max(1, count - 1)) * Math.max(0, points.length - 1))] || {};
+        compact.push({ x:+Number(point.x || 0).toFixed(4), y:+Number(point.y || 0).toFixed(4), w:+Number(point.w === undefined ? 1 : point.w).toFixed(2), t:+Number(point.t || 0).toFixed(2) });
+      }
+      return Object.assign({}, path, { points:compact });
+    }) });
+  }
+
+  function getPreviewTrash() {
+    try {
+      var now = Date.now();
+      var trash = JSON.parse(localStorage.getItem('starWorksTrashV1') || '[]');
+      return Array.isArray(trash) ? trash.filter(function (item) { return item && now - Number(item.deletedAt || 0) < 7 * 86400000; }) : [];
+    } catch (e) { return []; }
+  }
+
+  function savePreviewArtwork(result, voice, summaryLines) {
+    var records = getPreviewRecords();
+    var timestamp = Number(result.timestamp) || Date.now();
+    var recordId = result.id || ('work-' + timestamp.toString(36));
+    if (result.pathArtwork && window.lightBrush) {
+      var previewSeal = getAnimalSeal(result.starMapName || '今晚的无名星空');
+      result.pathArtwork.sealIcon = result.pathArtwork.sealIcon || previewSeal.icon;
+      result.pathArtwork.sealName = result.pathArtwork.sealName || previewSeal.name;
+      lightBrush.ensureFireworkIdentity(result.pathArtwork, {
+        id: recordId,
+        timestamp: timestamp,
+        title: result.starMapName || '',
+        animal: getAnimalSeal(result.starMapName || '').name
+      }, records.map(function (item) { return item.pathArtwork; }));
+    }
+    var record = Object.assign({}, result, {
+      id: recordId,
+      timestamp: timestamp,
+      artworkNumber: Number(result.artworkNumber) || Number(nextPreviewArtworkNumber()),
+      artworkDate: result.artworkDate || formatArtworkDate(timestamp),
+      pathArtwork: compactPreviewArtwork(result.pathArtwork),
+      summaryLines: summaryLines || [],
+      artworkVoiceLines: voice ? voice.lines : (result.artworkVoiceLines || []),
+      artworkVoiceFeature: voice ? voice.feature : (result.artworkVoiceFeature || ''),
+      artworkVoiceSignature: voice ? voice.signature : (result.artworkVoiceSignature || '')
+    });
+    if (record.pathArtwork) {
+      var recordScene = lightBrush.getAnimalScene(record.pathArtwork.sealIcon);
+      record.sceneKind = recordScene.key;
+      record.sceneName = recordScene.name;
+    }
+    var index = records.findIndex(function (item) { return item.id === record.id; });
+    if (index >= 0) records[index] = Object.assign({}, records[index], record);
+    else records.push(record);
+    try { localStorage.setItem('starRecords', JSON.stringify(records)); }
+    catch (e) { showToast('本地空间不足，作品还没有收好', 2600); return null; }
+    return record;
+  }
+
+  function renamePreviewArtwork(id, title) {
+    var records = getPreviewRecords();
+    var record = records.find(function (item) { return item.id === id; });
+    if (!record) return null;
+    record.starMapName = title;
+    record.customTitle = true;
+    record.autoTitleVersion = 0;
+    if (record.pathArtwork) {
+      var renamedArtworkSeal = getAnimalSeal(title);
+      record.pathArtwork.sealIcon = renamedArtworkSeal.icon;
+      record.pathArtwork.sealName = renamedArtworkSeal.name;
+      var renamedScene = lightBrush.getAnimalScene(renamedArtworkSeal.icon);
+      record.sceneKind = renamedScene.key;
+      record.sceneName = renamedScene.name;
+    }
+    localStorage.setItem('starRecords', JSON.stringify(records));
+    return record;
+  }
+
+  function deletePreviewArtwork(id) {
+    var records = getPreviewRecords();
+    var removed = records.find(function (item) { return item.id === id; });
+    if (!removed) return false;
+    var next = records.filter(function (item) { return item.id !== id; });
+    if (next.length === records.length) return false;
+    var trash = getPreviewTrash().filter(function (item) { return item.id !== id; });
+    trash.push(Object.assign({}, removed, { deletedAt:Date.now() }));
+    localStorage.setItem('starWorksTrashV1', JSON.stringify(trash));
+    localStorage.setItem('starRecords', JSON.stringify(next));
+    return true;
+  }
+
+  function restorePreviewArtwork() {
+    var trash = getPreviewTrash().sort(function (a,b) { return Number(b.deletedAt || 0) - Number(a.deletedAt || 0); });
+    if (!trash.length) return null;
+    var restored = Object.assign({}, trash.shift()); delete restored.deletedAt;
+    var records = getPreviewRecords().filter(function (item) { return item.id !== restored.id; });
+    records.push(restored);
+    localStorage.setItem('starRecords', JSON.stringify(records));
+    localStorage.setItem('starWorksTrashV1', JSON.stringify(trash));
+    return restored;
+  }
+
+  function getEncounterBook() {
+    try {
+      var parsed = JSON.parse(localStorage.getItem('specialStarEncountersV1') || 'null');
+      if (parsed && parsed.version === 1 && parsed.items) return parsed;
+    } catch (e) {}
+    return { version: 1, items: {}, lastId: '' };
+  }
+
+  function saveEncounter(special) {
+    var book = getEncounterBook();
+    var old = book.items[special.id] || {};
+    var now = Date.now();
+    var item = {
+      id: special.id,
+      name: special.name,
+      color: special.color,
+      count: (old.count || 0) + 1,
+      firstAt: old.firstAt || now,
+      lastAt: now,
+      lastLine: special.line
+    };
+    book.items[special.id] = item;
+    book.lastId = special.id;
+    localStorage.setItem('specialStarEncountersV1', JSON.stringify(book));
+    return item;
+  }
+
+  function formatEncounterDate(timestamp) {
+    var d = new Date(timestamp);
+    return (d.getMonth() + 1) + '月' + d.getDate() + '日';
+  }
+
+  function renderEncounterBook() {
+    if (!window.specialStars) return;
+    var book = getEncounterBook();
+    var metCount = 0;
+    $('encounterList').innerHTML = specialStars.SPECIAL_STARS.map(function (def) {
+      var met = book.items[def.id];
+      if (!met) {
+        return '<div class="encounter-card locked"><div class="encounter-light" style="color:#6F748C"><div class="symbol">✦</div><div class="ring"></div></div><div class="encounter-copy"><div class="encounter-name display-type">还未相遇</div><div class="encounter-desc">也许会在另一个夜晚，从星光里认出它。</div></div></div>';
+      }
+      metCount++;
+      return '<div class="encounter-card"><div class="encounter-light" style="color:' + def.color + '"><div class="symbol">✦</div><div class="ring"></div></div><div class="encounter-copy"><div class="encounter-top"><div class="encounter-name display-type">' + def.name + '</div><div class="encounter-date">' + formatEncounterDate(met.lastAt) + '</div></div><div class="encounter-desc">' + def.description + '</div><div class="encounter-quote">“' + escapeHtml(met.lastLine) + '”</div><div class="encounter-count">' + (met.count > 1 ? '它来看过你 ' + met.count + ' 次' : '你们刚刚认识') + '</div></div></div>';
+    }).join('');
+    $('encounterSubtitle').textContent = metCount > 0
+      ? '你已经遇见 ' + metCount + ' 位夜空朋友。没有需要集齐的期限。'
+      : '有些星星，会在合适的夜晚来看看你。';
+  }
+
+  function renderPreviewDiary() {
+    var records = getPreviewRecords();
+    var trash = getPreviewTrash();
+    var nights = {};
+    records.forEach(function (record) {
+      var d = new Date(record.timestamp);
+      nights[d.getFullYear() + '-' + d.getMonth() + '-' + d.getDate()] = true;
+    });
+    $('diarySubtitle').textContent = records.length
+      ? records.length + ' 幅作品 · ' + Object.keys(nights).length + ' 个夜晚，安静留在这里'
+      : '每一晚亲手牵过的星光，都在这里。';
+    $('diaryCount').textContent = records.length;
+    $('diarySection').style.display = records.length ? 'flex' : 'none';
+    $('diaryGrid').style.display = records.length ? 'block' : 'none';
+    $('diaryEmpty').style.display = records.length ? 'none' : 'block';
+    $('diaryNote').style.display = records.length ? 'block' : 'none';
+    $('diaryRestore').style.display = trash.length ? 'block' : 'none';
+    $('diaryRestore').textContent = '夜空保留了 ' + trash.length + ' 幅作品 · 找回最近一幅';
+    var groups = [];
+    records.forEach(function (record, index) {
+      var d = new Date(record.timestamp);
+      var key = d.getFullYear() + '-' + (d.getMonth() + 1);
+      var group = groups[groups.length - 1];
+      if (!group || group.key !== key) { group = { key:key, label:d.getFullYear() + '年' + (d.getMonth() + 1) + '月', items:[] }; groups.push(group); }
+      group.items.push({ record:record, index:index, date:d });
+    });
+    $('diaryGrid').innerHTML = groups.map(function (group) {
+      var cards = group.items.map(function (entry) {
+        var record = entry.record, index = entry.index, d = entry.date;
+        var title = record.starMapName || '今晚的无名星空';
+        var cardSeal = getAnimalSeal(title);
+        var cardIcon = record.pathArtwork.sealIcon || cardSeal.icon;
+        var cardScene = lightBrush.getAnimalScene(cardIcon);
+        return '<div class="diary-work ' + (index === 0 ? 'hero' : '') + '" data-index="' + index + '"><div class="diary-art"><canvas></canvas><span class="diary-number">第 ' + String(record.artworkNumber || index + 1).padStart(2, '0') + ' 幅</span>' + (index === 0 ? '<span class="diary-latest">最新一夜</span>' : '') + '</div><div class="diary-work-title">《' + escapeHtml(title) + '》</div><div class="diary-world">' + escapeHtml(cardScene.name + ' · ' + cardSeal.name + '星印') + '</div><div class="diary-date">' + (d.getMonth() + 1) + '月' + d.getDate() + '日</div></div>';
+      }).join('');
+      return '<section class="diary-month"><div class="diary-month-head"><span>' + group.label + '</span><span class="diary-month-line"></span><span class="diary-month-count">' + group.items.length + ' 幅</span></div><div class="diary-month-grid">' + cards + '</div></section>';
+    }).join('');
+
+    requestAnimationFrame(function () {
+      Array.from($('diaryGrid').querySelectorAll('.diary-work')).forEach(function (card) {
+        var record = records[Number(card.dataset.index)];
+        var canvas = card.querySelector('canvas');
+        var rect = canvas.getBoundingClientRect();
+        var dpr = window.devicePixelRatio || 1;
+        canvas.width = rect.width * dpr; canvas.height = rect.height * dpr;
+        var cardCtx = canvas.getContext('2d');
+        cardCtx.scale(dpr, dpr);
+        var diaryIcon = record.pathArtwork.sealIcon || getAnimalSeal(record.starMapName || '').icon;
+        var renderDiaryArtwork = function (master) {
+          cardCtx.clearRect(0, 0, rect.width, rect.height);
+          var style = lightBrush.drawArtworkAtmosphere(cardCtx, record.pathArtwork, 0, 0, rect.width, rect.height, {
+            style: lightBrush.getArtworkStyle(record.pathArtwork)
+          });
+          lightBrush.drawFinalArtworkPaths(cardCtx, record.pathArtwork, 0, 0, rect.width, rect.height, { progress: 1 });
+          lightBrush.drawArtworkFireworks(cardCtx, record.pathArtwork, 0, 0, rect.width, rect.height, {
+            style: style,
+            progress: 1,
+            sealIcon: diaryIcon,
+            reducedMotion: reducedMotion,
+            animalMaster: master || null
+          });
+        };
+        var diaryMaster = window.animalMasters.get(canvas, diaryIcon);
+        renderDiaryArtwork(diaryMaster);
+        if (!diaryMaster) window.animalMasters.load(canvas, diaryIcon, function (image) {
+          if (image) renderDiaryArtwork(image);
+        });
+        card.onclick = function () {
+          currentMood = record.mood || 'unknown';
+          starMapName = record.starMapName || '';
+          engine = { stats: record };
+          showResult(record, record);
+        };
+      });
+    });
+  }
+
+  // ---- 声音（与小程序同款三段音频）----
+  var soundOn = localStorage.getItem('soundOn') === '1';
+  var vibrateOn = localStorage.getItem('vibrateOn') === '1';
+  var ambAudio = null, dingAudios = [], plopAudio = null, audioFadeTimers = [];
+  function ensureAudio() {
+    if (ambAudio) return;
+    ambAudio = new Audio('./assets/audio/ambient.mp3');
+    ambAudio.loop = true; ambAudio.volume = 0.35;
+    [1, 2, 3, 4, 5].forEach(function (i) {
+      var d = new Audio('./assets/audio/ding' + i + '.mp3');
+      d.volume = 0.5;
+      dingAudios.push(d);
+    });
+    plopAudio = new Audio('./assets/audio/plop.mp3');
+    plopAudio.volume = 0.3;
+  }
+  function playAmbient() {
+    if (!soundOn) return;
+    ensureAudio();
+    audioFadeTimers.forEach(clearTimeout); audioFadeTimers = [];
+    ambAudio.volume = 0.04;
+    ambAudio.play().catch(function () {});
+    [[650,.13],[1300,.23],[2200,.35]].forEach(function (step) {
+      audioFadeTimers.push(setTimeout(function () { if (soundOn && ambAudio) ambAudio.volume = step[1]; }, step[0]));
+    });
+  }
+  function stopAmbient() {
+    audioFadeTimers.forEach(clearTimeout); audioFadeTimers = [];
+    if (ambAudio) ambAudio.pause();
+  }
+  var LADDER = [1, 2, 3, 4, 5, 4, 3, 2];
+  function playDing(streak) {
+    if (!soundOn || !dingAudios.length) return;
+    var rung = LADDER[(Math.max(1, streak || 1) - 1) % LADDER.length];
+    var d = dingAudios[rung - 1];
+    d.currentTime = 0;
+    d.play().catch(function () {});
+  }
+  function playPlop() { if (!soundOn || !plopAudio) return; plopAudio.currentTime = 0; plopAudio.play().catch(function () {}); }
+  function updateFeedbackIcons() {
+    $('btnSound').textContent = '声音 · ' + (soundOn ? '开' : '关');
+    $('btnVibrate').textContent = '轻震 · ' + (vibrateOn ? '开' : '关');
+    $('btnSound').classList.toggle('is-on', soundOn);
+    $('btnVibrate').classList.toggle('is-on', vibrateOn);
+  }
+
+  // ---- 画布尺寸（模拟手机 + 高清适配，与小程序 game.js 同一做法）----
+  function fitCanvas() {
+    var rect = cv.getBoundingClientRect();
+    var dpr = window.devicePixelRatio || 2;
+    cv.width = rect.width * dpr;
+    cv.height = rect.height * dpr;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    mapCv.width = rect.width * dpr;
+    mapCv.height = rect.height * dpr;
+    mapCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    if (engine && typeof engine.resize === 'function') engine.resize(rect.width, rect.height);
+    if (mapNodes.length) {
+      positionMapNodes(rect.width, rect.height);
+      drawStarMap();
+    }
+    return { w: rect.width, h: rect.height };
+  }
+
+  // ---- 屏幕切换 ----
+  function show(scr) {
+    ['scrStart', 'scrMood', 'scrResult', 'scrHelp', 'scrEncounters', 'scrDiary'].forEach(function (id) {
+      $(id).style.display = (id === scr) ? 'flex' : 'none';
+    });
+    $('gameLayer').style.display = (scr === 'game') ? 'block' : 'none';
+    if (scr === 'scrStart' && breatheCompleted) {
+      if (!qs.get('t')) BREATHE_DURATION = 180;
+      $('breatheTitle').textContent = '安静呼吸 · 3 分钟';
+    }
+  }
+
+  // ---- 心情选择 ----
+  var MOODS = [
+    { key: 'tired', color: '#9BB7FF', label: '想歇一歇', desc: '让身体和脑子都松一点' },
+    { key: 'anxious', color: '#C8A2FF', label: '想让脑子慢下来', desc: '把纷乱的念头放慢一点' },
+    { key: 'sad', color: '#8EA7E9', label: '想有人陪一会儿', desc: '不必独自消化这一刻' },
+    { key: 'quiet', color: '#BFD8FF', label: '想安静待着', desc: '什么都不说也可以' },
+    { key: 'comfort', color: '#FFD9B8', label: '想暖一点', desc: '收下一点柔和的暖光' },
+    { key: 'unknown', color: '#D9D4FF', label: '还说不清', desc: '先从不知道开始' }
+  ];
+  MOODS.forEach(function (m, index) {
+    var el = document.createElement('div');
+    el.className = 'mood';
+    el.innerHTML = '<div class="mood-top"><span class="mood-mark" style="background:' + m.color + ';box-shadow:0 0 11px ' + m.color + '"></span><span class="mood-index">0' + (index + 1) + '</span></div>' +
+      '<span class="label">' + m.label + '</span><div class="mood-desc">' + m.desc + '</div><span class="mood-arrow">›</span>';
+    el.onclick = function () {
+      if (targetMode === 'breathe') startBreathe(m.key);
+      else startGame(m.key);
+    };
+    $('moodGrid').appendChild(el);
+  });
+
+  // ---- 开始游戏 / 开始纯呼吸 ----
+  function startGame(mood) {
+    targetMode = 'game';
+    currentMood = mood; caughtCount = 0;
+    collectedStars = []; closingFlow = false; starMapName = ''; mapNodes = []; mapPath = [];
+    targetCatchCount = 5;
+    clearTimeout(ritualTimer); clearTimeout(closingTimer); clearTimeout(specialReadyTimer); clearTimeout(specialAutoTimer);
+    $('specialMeet').classList.remove('show');
+    $('finaleLayer').classList.remove('show');
+    $('finaleText').textContent = '';
+    specialEncounter = null;
+    var encounterBook = getEncounterBook();
+    var pickedSpecial = specialStars.pickSpecialStar(encounterBook.lastId);
+    var previousSpecial = encounterBook.items[pickedSpecial.id] || null;
+    tonightSpecial = {
+      id: pickedSpecial.id,
+      line: specialStars.pickLine(pickedSpecial.id, previousSpecial && previousSpecial.lastLine),
+      isRepeat: !!previousSpecial
+    };
+    hideStarMap();
+    $('gameLayer').classList.add('gentle-flow');
+    $('pathProgress').style.display = 'flex';
+    $('pathProgressText').textContent = '按住发光的星星，轻轻牵动它';
+    $('modeLabel').style.display = 'none';
+    $('btnQuit').textContent = '先到这里';
+    show('game');
+    var size = fitCanvas();
+    engine = new StarGame({
+      width: size.w, height: size.h, mood: mood, duration: DURATION,
+      mode: 'path',
+      targetCatches: targetCatchCount,
+      specialStar: tonightSpecial,
+      reducedMotion: reducedMotion,
+      onEvent: handleEvent
+    });
+    lastTs = performance.now();
+    cancelAnimationFrame(raf);
+    raf = requestAnimationFrame(loop);
+    playAmbient();
+    if (localStorage.getItem('gameGuideSeenV1') !== '1') {
+      localStorage.setItem('gameGuideSeenV1', '1');
+      $('gameGuide').classList.add('show');
+      clearTimeout(guideTimer);
+      guideTimer = setTimeout(hideGameGuide, 6500);
+    } else {
+      hideGameGuide();
+    }
+    setTimeout(function () {
+      var opener = starTexts.moodOpeners[mood] || '';
+      if (opener) showToast(opener, 3000);
+    }, 900);
+  }
+
+  function startBreathe(mood) {
+    targetMode = 'breathe';
+    currentMood = mood; caughtCount = 0;
+    collectedStars = []; closingFlow = false; starMapName = ''; mapNodes = []; mapPath = [];
+    clearTimeout(ritualTimer); clearTimeout(closingTimer);
+    hideStarMap();
+    $('gameLayer').classList.remove('gentle-flow');
+    $('pathProgress').style.display = 'none';
+    $('modeLabel').style.display = 'block';
+    $('modeLabel').textContent = '安静呼吸 · ' + Math.ceil(BREATHE_DURATION / 60) + ' 分钟';
+    $('btnQuit').textContent = '随时结束';
+    show('game');
+    var size = fitCanvas();
+    engine = new StarGame({
+      width: size.w, height: size.h, mood: mood,
+      duration: BREATHE_DURATION, mode: 'breathe',
+      reducedMotion: reducedMotion,
+      onEvent: handleEvent
+    });
+    lastTs = performance.now();
+    cancelAnimationFrame(raf);
+    raf = requestAnimationFrame(loop);
+    playAmbient();
+    hideGameGuide();
+    showToast('不用刻意吸得很深，按舒服的节奏就好。', 3000);
+  }
+
+  function loop(ts) {
+    if (!engine) return;
+    var dt = Math.min(0.05, (ts - lastTs) / 1000);
+    lastTs = ts;
+    engine.update(dt);
+    engine.draw(ctx);
+    raf = requestAnimationFrame(loop);
+  }
+
+  // ---- 事件处理（与小程序 game.js 的 handleEvent 一致）----
+  function handleEvent(type, payload) {
+    if (type === 'tick') {
+      var isBreathe = engine && engine.mode === 'breathe';
+      var text;
+      if (isBreathe && payload.remaining >= 60) {
+        var m = Math.floor(payload.remaining / 60);
+        var s = payload.remaining % 60;
+        text = '还剩 ' + m + ' 分' + (s > 0 ? ' ' + s + ' 秒' : '');
+      } else if (isBreathe) {
+        text = payload.remaining > 0 ? '还剩 ' + payload.remaining + ' 秒' : '';
+      } else {
+        // 接星星模式：不用倒计时数字，用阶段词
+        var ratio = payload.remaining / engine.duration;
+        text = payload.remaining > 0 ? (ratio > 2 / 3 ? '夜色正浓' : (ratio > 1 / 3 ? '夜过半了' : '天边泛起微光')) : '';
+      }
+      $('timeText').textContent = text;
+      var total = engine ? engine.duration : DURATION;
+      $('timeBar').style.width = Math.max(0, payload.remaining / total * 100) + '%';
+    } else if (type === 'catch') {
+      caughtCount++;
+      if (caughtCount === 1) hideGameGuide();
+      playDing(payload.streak);
+      collectedStars.push({
+        type: payload.type,
+        color: payload.color,
+        label: STAR_CHOICE_NAMES[payload.type] || '今晚的星'
+      });
+      if (payload.special) {
+        openSpecialEncounter(payload.special);
+        return;
+      }
+      if (engine && engine.mode !== 'path' && engine.targetCatches && collectedStars.length >= engine.targetCatches) {
+        clearTimeout(toastTimer);
+        $('toast').classList.remove('show');
+        engine.pauseForStarChoice();
+        openStarMap();
+        return;
+      }
+      if (engine && engine.mode === 'path' && payload.pathComplete) {
+        var pathWords = ['第一颗星留下了光', '夜空记住了你的方向', '这幅作品正在慢慢长出来', '再牵回一点属于你的光', '今晚的作品完成了'];
+        $('pathProgressText').textContent = pathWords[Math.min(caughtCount - 1, pathWords.length - 1)];
+      }
+      if (currentMood === 'quiet') {
+        return;
+      } else if (payload.streak === 5) {
+        showToast(starTexts.streakTopText, 2600);
+      } else if (Math.random() < 0.1) {
+        showToast('✦ ' + starTexts.getRandomWhisper(), 3000);
+      } else if (caughtCount === 1 || caughtCount % 3 === 0) {
+        showToast(starTexts.getRandomText(payload.type, currentMood), 2600);
+      }
+    } else if (type === 'pathReady') {
+      var pathOrders = ['第一', '第二', '第三', '第四', '最后'];
+      $('pathProgressText').textContent = '按住' + (pathOrders[payload.index] || '下一') + '颗星，轻轻牵动它';
+    } else if (type === 'pathStartHint') {
+      showToast('先按住正在发光的星星。', 2100);
+    } else if (type === 'pathGuideStart') {
+      $('pathProgressText').textContent = '慢慢移动，星星会轻轻跟上你';
+    } else if (type === 'pathIdleHint') {
+      showToast('按住发光的星星，带它走一小段就好。', 2600);
+    } else if (type === 'pathRetry') {
+      showToast('再多牵它走一点，剩下的路交给星星。', 2200);
+    } else if (type === 'pathTravel') {
+      hideGameGuide();
+      showToast('松开手，星星会自己找到回家的路。', 1800);
+    } else if (type === 'artworkComplete') {
+      if (engine) engine.pauseForStarChoice();
+      openArtworkName();
+    } else if (type === 'specialAppear') {
+      if (currentMood !== 'quiet') showToast('今晚，好像有一颗不一样的星。', 2400);
+    } else if (type === 'specialEcho') {
+      if (currentMood !== 'quiet') showToast('它轻轻弹回来，像在等第二次相遇。', 2200);
+    } else if (type === 'specialReturn') {
+      if (currentMood !== 'quiet') showToast('它绕了一圈，还会再回来。', 2200);
+    } else if (type === 'miss') {
+      playPlop();
+      if (currentMood !== 'quiet' && Math.random() < 0.1) showToast(starTexts.getRandomMissText(), 2400);
+    } else if (type === 'breathStart') {
+      showToast(closingFlow ? '让今晚的作品陪你呼吸三次。' : (payload.manual ? starTexts.breathTexts.pause : starTexts.breathTexts.start), 2400);
+      if (vibrateOn && navigator.vibrate) navigator.vibrate(12);
+      currentBreathName = payload.pattern || '';
+      currentBreathRounds = payload.rounds || 3;
+      hideWhisper();
+      $('breathPhase').textContent = '';
+      $('breathLayer').style.display = 'block';
+    } else if (type === 'breathPhase') {
+      if (vibrateOn && (payload.phase === 'inhale' || payload.phase === 'exhale') && navigator.vibrate) {
+        navigator.vibrate(12);
+      }
+      var map = { inhale: '慢慢吸气', hold: '自然停一下', exhale: '慢慢呼气' };
+      $('breathPhase').textContent = map[payload.phase];
+      $('breathRound').textContent = engine && engine.mode === 'breathe'
+        ? (currentBreathName ? currentBreathName + ' · ' : '') + '跟到哪里都可以'
+        : (currentBreathName ? currentBreathName + ' · ' : '') + payload.round + ' / ' + currentBreathRounds;
+    } else if (type === 'breathEnd') {
+      $('breathLayer').style.display = 'none';
+      if (closingFlow) {
+        hideStarMap();
+        if (engine) {
+          engine.startArtworkFinale();
+          if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches && engine.artworkFinale) {
+            engine.artworkFinale.t = engine.artworkFinale.duration;
+          }
+        }
+        return;
+      }
+      if (!(engine && engine.mode === 'breathe')) showToast(starTexts.breathTexts.end, 3000);
+    } else if (type === 'artworkFinaleStart') {
+      $('pathProgress').style.display = 'none';
+      $('finaleText').textContent = '月亮船正把收藏的光，送回天空';
+      $('finaleLayer').classList.add('show');
+    } else if (type === 'artworkFinaleBloom') {
+      $('finaleText').textContent = '一颗接一颗，星星正在回家';
+    } else if (type === 'artworkFinaleEnd') {
+      $('finaleText').textContent = '今晚的最后一幅作品，完成了';
+      clearTimeout(closingTimer);
+      closingTimer = setTimeout(function () {
+        $('finaleLayer').classList.remove('show');
+        if (engine) engine.finishNow();
+      }, 700);
+    } else if (type === 'offerPause') {
+      // 夜空的低语：错过变多或一直没歇时，轻轻浮现几秒
+      $('pauseWhisper').classList.add('show');
+      clearTimeout(whisperTimer);
+      whisperTimer = setTimeout(hideWhisper, 7000);
+    } else if (type === 'finish') {
+      cancelAnimationFrame(raf);
+      stopAmbient();
+      if (engine && engine.mode === 'breathe') {
+        // 首次一分钟结束后可自愿再陪自己两分钟
+        var offerMore = BREATHE_DURATION === 60 && !breatheContinuation;
+        breatheCompleted = true;
+        localStorage.setItem('breatheCompletedOnce', '1');
+        $('gnBreatheRounds').textContent = offerMore ? '这一分钟已经很好。' : '你陪自己安静呼吸了一会儿。';
+        $('gnBreatheMore').style.display = offerMore ? 'flex' : 'none';
+        $('gnBreatheHome').style.display = offerMore ? 'none' : 'block';
+        $('goodnightBreathe').classList.add('show');
+      } else {
+        showResult(payload);
+      }
+    } else if (type === 'nameStart') {
+      $('nameLayer').classList.add('show');
+      $('nameQ').style.display = 'block';
+      $('nameQ').innerHTML = '如果这颗星星是一种感受，<br>它更像是？';
+      $('nameOpts').style.display = 'flex';
+      $('customNamePanel').style.display = 'none';
+      $('customNameInput').value = '';
+      $('customNameError').textContent = '';
+      $('nameResult').style.display = 'none';
+      hideWhisper();
+    } else if (type === 'nameDone') {
+      $('nameQ').style.display = 'none';
+      $('nameOpts').style.display = 'none';
+      $('customNamePanel').style.display = 'none';
+      $('nameStrong').textContent = '叫「' + payload.name + '」的星星';
+      $('nameFb').textContent = starTexts.nameFeedback[payload.name] || '这个名字只属于今晚，你已经把它轻轻放在这里了。';
+      $('nameResult').style.display = 'block';
+    } else if (type === 'nameEnd') {
+      $('nameLayer').classList.remove('show');
+    }
+  }
+
+  function openSpecialEncounter(special) {
+    if (!special || $('specialMeet').classList.contains('show')) return;
+    clearTimeout(toastTimer);
+    clearTimeout(specialReadyTimer);
+    clearTimeout(specialAutoTimer);
+    if (engine) engine.pauseForSpecial();
+    var saved = saveEncounter(special);
+    specialEncounter = Object.assign({}, special, { count: saved.count });
+    $('toast').classList.remove('show');
+    $('specialName').textContent = special.name;
+    $('specialLine').textContent = '“' + special.line + '”';
+    $('specialRepeat').textContent = saved.count > 1 ? '它又来看你了 · 第 ' + saved.count + ' 次相遇' : '第一次相遇';
+    $('specialOrbit').style.color = special.color;
+    $('specialContinue').classList.remove('ready');
+    $('specialContinue').textContent = '让它停一会儿';
+    $('specialMeet').classList.add('show');
+    specialReadyTimer = setTimeout(function () {
+      $('specialContinue').classList.add('ready');
+      $('specialContinue').textContent = '继续牵星';
+    }, 1500);
+    specialAutoTimer = setTimeout(continueSpecialEncounter, 5600);
+  }
+
+  function continueSpecialEncounter() {
+    if (!$('specialMeet').classList.contains('show')) return;
+    clearTimeout(specialReadyTimer);
+    clearTimeout(specialAutoTimer);
+    $('specialMeet').classList.remove('show');
+    $('specialContinue').classList.remove('ready');
+    if (engine) engine.resumeFromSpecial();
+  }
+
+  function hideWhisper() {
+    $('pauseWhisper').classList.remove('show');
+  }
+
+  function hideGameGuide() {
+    clearTimeout(guideTimer);
+    $('gameGuide').classList.remove('show');
+  }
+
+  function showToast(text, dur) {
+    var el = $('toast');
+    clearTimeout(toastTimer);
+    el.classList.remove('show');
+    el.textContent = text;
+    setTimeout(function () { el.classList.add('show'); }, 30);
+    toastTimer = setTimeout(function () { el.classList.remove('show'); }, dur);
+  }
+
+  // ---- 今晚星图：点按或滑过星点，自由连线 ----
+  function openArtworkName() {
+    var artwork = engine && engine.stats && engine.stats.pathArtwork;
+    var records = getPreviewRecords();
+    var usedTitles = records.map(function (record) { return record.starMapName; }).filter(Boolean);
+    var title = window.artworkTitles
+      ? artworkTitles.generateArtworkTitle(artwork, usedTitles)
+      : '小鹿穿过今晚的银河';
+    if (artwork && window.lightBrush) {
+      var titleSeal = getAnimalSeal(title);
+      artwork.sealIcon = titleSeal.icon;
+      artwork.sealName = titleSeal.name;
+      window.animalMasters.load(cv, titleSeal.icon, function (image) {
+        if (image && engine) engine.animalMaster = image;
+      });
+      lightBrush.ensureFireworkIdentity(artwork, {
+        timestamp: Date.now(),
+        title: title,
+        animal: titleSeal.name
+      }, records.map(function (record) { return record.pathArtwork; }));
+    }
+    // 完成后直接进入呼吸，不再让睡前用户多做一道命名选择。
+    beginMapBreath(title);
+  }
+
+  function positionMapNodes(width, height) {
+    var layout = [[.17,.57],[.29,.31],[.48,.47],[.63,.24],[.81,.39],[.71,.67],[.38,.73]];
+    mapNodes.forEach(function (node, index) {
+      node.x = width * layout[index][0];
+      node.y = height * layout[index][1];
+    });
+  }
+
+  function openStarMap() {
+    var rect = mapCv.getBoundingClientRect();
+    mapNodes = collectedStars.slice(0, 7).map(function (star) {
+      return { x: 0, y: 0, color: star.color, type: star.type };
+    });
+    mapPath = [];
+    starMapName = '';
+    positionMapNodes(rect.width, rect.height);
+    $('mapCanvas').className = 'map-canvas show';
+    $('starMapLayer').classList.add('show');
+    $('mapHeading').style.display = 'block';
+    $('mapBottom').style.display = 'flex';
+    $('mapNameCard').style.display = 'none';
+    $('mapProgress').textContent = '先从任意一颗星开始';
+    $('mapFinish').classList.remove('ready');
+    $('mapCustom').style.display = 'none';
+    $('mapNameActions').style.display = 'flex';
+    drawStarMap();
+  }
+
+  function hideStarMap() {
+    if (!$('mapCanvas')) return;
+    $('mapCanvas').className = 'map-canvas';
+    $('starMapLayer').classList.remove('show');
+    $('mapNameCard').style.display = 'none';
+  }
+
+  function drawStarMap() {
+    var rect = mapCv.getBoundingClientRect();
+    mapCtx.clearRect(0, 0, rect.width, rect.height);
+    mapCtx.save();
+    mapCtx.lineCap = 'round';
+    mapCtx.lineJoin = 'round';
+    for (var i = 1; i < mapPath.length; i++) {
+      var a = mapNodes[mapPath[i - 1]], b = mapNodes[mapPath[i]];
+      mapCtx.beginPath(); mapCtx.moveTo(a.x, a.y); mapCtx.lineTo(b.x, b.y);
+      mapCtx.strokeStyle = 'rgba(229,207,147,.34)'; mapCtx.lineWidth = 5;
+      mapCtx.shadowColor = 'rgba(229,207,147,.22)'; mapCtx.shadowBlur = 12; mapCtx.stroke();
+      mapCtx.shadowBlur = 0; mapCtx.strokeStyle = 'rgba(244,232,201,.72)'; mapCtx.lineWidth = 1.2; mapCtx.stroke();
+    }
+    mapNodes.forEach(function (node, index) {
+      var active = mapPath.indexOf(index) >= 0;
+      mapCtx.beginPath(); mapCtx.arc(node.x, node.y, active ? 7.5 : 6, 0, Math.PI * 2);
+      mapCtx.fillStyle = node.color; mapCtx.shadowColor = node.color; mapCtx.shadowBlur = active ? 24 : 14; mapCtx.fill();
+      mapCtx.shadowBlur = 0; mapCtx.beginPath(); mapCtx.arc(node.x, node.y, active ? 18 : 15, 0, Math.PI * 2);
+      mapCtx.strokeStyle = active ? 'rgba(244,232,201,.26)' : 'rgba(221,225,239,.12)'; mapCtx.lineWidth = 1; mapCtx.stroke();
+    });
+    mapCtx.restore();
+  }
+
+  function nearestMapNode(x, y) {
+    var nearest = -1, distance = 44;
+    mapNodes.forEach(function (node, index) {
+      var dx = node.x - x, dy = node.y - y, d = Math.sqrt(dx * dx + dy * dy);
+      if (d < distance) { distance = d; nearest = index; }
+    });
+    return nearest;
+  }
+
+  function connectMapPoint(clientX, clientY) {
+    var rect = mapCv.getBoundingClientRect();
+    var index = nearestMapNode(clientX - rect.left, clientY - rect.top);
+    if (index < 0) return;
+    var last = mapPath[mapPath.length - 1];
+    if (last === index || mapPath.indexOf(index) >= 0) return;
+    mapPath.push(index);
+    playDing(Math.min(mapPath.length, 5));
+    var ready = mapPath.length >= 3;
+    $('mapProgress').textContent = ready ? '它已经有了自己的形状' : '再轻轻连起一颗星';
+    $('mapFinish').classList.toggle('ready', ready);
+    drawStarMap();
+  }
+
+  function finishStarMap() {
+    if (mapPath.length < 3) {
+      showToast('再轻轻连起一颗星，就能看见它了。', 2200);
+      return;
+    }
+    var seed = mapPath.reduce(function (sum, value, index) { return sum + value * (index + 2); }, caughtCount);
+    mapNameIndex = seed % STAR_MAP_NAMES.length;
+    $('mapHeading').style.display = 'none';
+    $('mapBottom').style.display = 'none';
+    $('mapName').textContent = '「' + STAR_MAP_NAMES[mapNameIndex] + '」';
+    $('mapNameCard').style.display = 'block';
+  }
+
+  function beginMapBreath(name) {
+    starMapName = name || '';
+    closingFlow = true;
+    $('starMapLayer').classList.remove('show');
+    $('mapNameCard').style.display = 'none';
+    $('mapCanvas').className = engine && engine.mode === 'path' ? 'map-canvas' : 'map-canvas show breathing';
+    if (engine) engine.startClosingBreath(3);
+  }
+
+  function submitMapCustomName() {
+    var name = $('mapCustomInput').value.replace(/\s+/g, ' ').trim().slice(0, 8);
+    if (!name) {
+      $('mapCustomError').textContent = '写下 1–8 个字，或者先用今晚的名字。';
+      return;
+    }
+    beginMapBreath(name);
+  }
+
+  // ---- 命名选项 ----
+  ['委屈', '紧张', '孤单', '烦躁', '空落落', '想念'].forEach(function (n) {
+    var el = document.createElement('div');
+    el.className = 'name-opt';
+    el.textContent = n;
+    el.onclick = function () { if (engine) engine.setNameAnswer(n); };
+    $('nameOpts').appendChild(el);
+  });
+  var unknownEl = document.createElement('div');
+  unknownEl.className = 'name-opt half';
+  unknownEl.textContent = '还说不清';
+  unknownEl.onclick = function () { if (engine) engine.setNameAnswer('还说不清'); };
+  $('nameOpts').appendChild(unknownEl);
+  var customEl = document.createElement('div');
+  customEl.className = 'name-opt half';
+  customEl.textContent = '自己写一个';
+  customEl.onclick = function () {
+    $('nameQ').textContent = '今晚，你想叫它什么？';
+    $('nameOpts').style.display = 'none';
+    $('customNamePanel').style.display = 'block';
+    $('customNameInput').focus();
+  };
+  $('nameOpts').appendChild(customEl);
+
+  function submitCustomName() {
+    var name = $('customNameInput').value.replace(/\s+/g, ' ').trim().slice(0, 8);
+    if (!name) {
+      $('customNameError').textContent = '写下一个词，或者回去选“还说不清”。';
+      return;
+    }
+    if (engine) engine.setNameAnswer(name);
+  }
+  $('customNameSubmit').onclick = submitCustomName;
+  $('customNameInput').oninput = function () { $('customNameError').textContent = ''; };
+  $('customNameInput').onkeydown = function (e) { if (e.key === 'Enter') submitCustomName(); };
+  $('customNameBack').onclick = function () {
+    $('nameQ').innerHTML = '如果这颗星星是一种感受，<br>它更像是？';
+    $('customNamePanel').style.display = 'none';
+    $('nameOpts').style.display = 'flex';
+  };
+
+  // ---- 结果页 ----
+  function showResult(stats, storedRecord) {
+    cancelAnimationFrame(raf);
+    $('resultDetails').classList.remove('show');
+    $('btnResultDetails').textContent = '作品信息与管理⌄';
+    var result = Object.assign({
+      count: stats.caught, breathCount: stats.breathCount,
+      pauseCount: stats.pauseCount, namedStar: stats.namedStar,
+      missed: stats.missed, byType: stats.byType, mood: currentMood,
+      starMapName: starMapName, specialStar: stats.specialStar || specialEncounter || null,
+      pathArtwork: stats.pathArtwork || null
+    }, storedRecord || {});
+    var summaryLines = Array.isArray(result.summaryLines) && result.summaryLines.length
+      ? result.summaryLines
+      : summary.generateSummary(result);
+    if (!storedRecord && previewReplaceRecord && previewReplaceRecord.id) {
+      result.id = previewReplaceRecord.id;
+      result.timestamp = previewReplaceRecord.timestamp;
+      result.artworkNumber = previewReplaceRecord.artworkNumber;
+    }
+    var usedVoiceSignatures = getPreviewRecords().map(function (record) {
+      return record.artworkVoiceSignature || (Array.isArray(record.artworkVoiceLines) ? record.artworkVoiceLines.join('\n') : '');
+    }).filter(Boolean);
+    var voice = result.pathArtwork && window.artworkVoice
+      ? artworkVoice.generateArtworkVoice(result.pathArtwork, result.mood, { usedSignatures:usedVoiceSignatures })
+      : null;
+    if (storedRecord && Array.isArray(storedRecord.artworkVoiceLines) && storedRecord.artworkVoiceLines.length) {
+      voice = Object.assign({}, voice || {}, { lines: storedRecord.artworkVoiceLines, disclaimer: artworkVoice.DISCLAIMER });
+    }
+    currentResultRecord = storedRecord || (result.pathArtwork ? savePreviewArtwork(result, voice, summaryLines) : null);
+    if (!storedRecord) previewReplaceRecord = null;
+    if (currentResultRecord) result = Object.assign({}, result, currentResultRecord);
+
+    $('resLines').innerHTML = summaryLines
+      .map(function (l) { return '<div class="line">' + escapeHtml(l) + '</div>'; }).join('');
+    $('resHints').innerHTML =
+      '<div class="hint-text">' + escapeHtml(summary.generateDominantHint(result)) + '</div>' +
+      '<div class="hint-text">' + escapeHtml(summary.getMoodCloser(result.mood)) + '</div>';
+    if (voice) {
+      $('artworkVoice').style.display = 'block';
+      $('artworkVoiceLines').innerHTML = voice.lines.map(function (line) {
+        var softenedLine = String(line || '')
+          .replace('今晚的光没有走直线', '今晚的光绕了一点远路')
+          .replace('，绕行没有妨碍它们回家。', '，最后还是回到了家。');
+        return '<div class="artwork-voice-line">' + escapeHtml(softenedLine).replace('，', '，<br>') + '</div>';
+      }).join('');
+      $('artworkVoiceNote').textContent = voice.disclaimer;
+      $('resLines').style.display = 'none';
+      $('resultDivider').style.display = 'none';
+      $('resHints').style.display = 'none';
+    } else {
+      $('artworkVoice').style.display = 'none';
+      $('resLines').style.display = 'block';
+      $('resultDivider').style.display = 'block';
+      $('resHints').style.display = 'block';
+    }
+    var colorMap = { tired:'#9BB7FF', anxious:'#C8A2FF', sad:'#8EA7E9', hope:'#FFD66B', calm:'#FFFFFF' };
+    var dots = '';
+    Object.keys(result.byType).forEach(function (t) {
+      for (var i = 0; i < result.byType[t]; i++) {
+        dots += '<span class="dot" style="background:' + (colorMap[t] || '#fff') + ';box-shadow:0 0 6px ' + (colorMap[t] || '#fff') + '"></span>';
+      }
+    });
+    $('resDots').innerHTML = dots || '<span class="dot" style="background:#292C45"></span>';
+    if (result.specialStar) {
+      $('resSpecial').style.display = 'flex';
+      $('resSpecialStar').style.color = result.specialStar.color;
+      $('resSpecialName').textContent = '今晚遇见 · ' + result.specialStar.name;
+      $('resSpecialLine').textContent = '“' + result.specialStar.line + '”';
+    } else {
+      $('resSpecial').style.display = 'none';
+    }
+    stopArtworkReplay(false);
+    show('scrResult');
+    if (result.pathArtwork && result.pathArtwork.paths && result.pathArtwork.paths.length) {
+      currentResultArtwork = result.pathArtwork;
+      currentArtworkStyle = window.lightBrush.getArtworkStyle(result.pathArtwork);
+      artworkReplayDone = true;
+      resultArtworkNumberLabel = String(result.artworkNumber || Number(nextPreviewArtworkNumber())).padStart(2, '0');
+      resultArtworkDateLabel = result.artworkDate || formatArtworkDate(result.timestamp || Date.now());
+      $('artworkFrame').style.display = 'block';
+      $('resultArtworkEdition').textContent = '月光手稿 · 第 ' + resultArtworkNumberLabel + ' 幅';
+      $('originalNumber').textContent = resultArtworkNumberLabel;
+      var resultTitle = result.starMapName || '今晚的无名星空';
+      var resultSeal = getPreviewAnimalOverride() || getAnimalSeal(resultTitle);
+      var resultScene = lightBrush.getAnimalScene(resultSeal.icon);
+      result.pathArtwork.sealIcon = resultSeal.icon;
+      result.pathArtwork.sealName = resultSeal.name;
+      $('resultArtworkNameText').textContent = resultTitle;
+      $('sealName').textContent = resultSeal.name + '星印';
+      $('resultSceneName').textContent = resultScene.name;
+      $('resultSceneLine').textContent = resultScene.line;
+      $('workIdentity').style.display = 'block';
+      $('resultArtworkStyle').textContent = resultScene.name;
+      $('resultArtworkDate').textContent = resultArtworkDateLabel;
+      $('artworkReplayText').textContent = '再看一次烟花动物';
+      $('artworkReplay').classList.remove('playing', 'disabled');
+      $('fireworkNote').classList.add('show');
+      $('fireworkNote').textContent = '五朵花火散开后，会在' + resultScene.name + '里合成今晚的小动物。';
+      requestAnimationFrame(function () {
+        drawResultArtwork(result.pathArtwork);
+        drawSealDoodle(resultSeal);
+      });
+    } else {
+      currentResultArtwork = null;
+      currentArtworkStyle = null;
+      $('artworkFrame').style.display = 'none';
+      $('workIdentity').style.display = 'none';
+    }
+  }
+
+  function colorAlpha(hex, alpha) {
+    var value = String(hex || '#FFFFFF').replace('#', '');
+    if (value.length === 3) value = value.split('').map(function (c) { return c + c; }).join('');
+    return 'rgba(' + parseInt(value.slice(0, 2), 16) + ',' + parseInt(value.slice(2, 4), 16) + ',' + parseInt(value.slice(4, 6), 16) + ',' + alpha + ')';
+  }
+
+  function drawArtworkPaths(targetCtx, artwork, x, y, w, h, replay, displayOptions) {
+    displayOptions = displayOptions || {};
+    var paths = artwork && artwork.paths || [];
+    var style = window.lightBrush.drawArtworkAtmosphere(targetCtx, artwork, x, y, w, h, {
+      style: currentArtworkStyle || window.lightBrush.getArtworkStyle(artwork)
+    });
+    var finalMode = !replay || (replay.pathIndex >= paths.length && (replay.firework || 0) > .03);
+    if (finalMode) {
+      window.lightBrush.drawFinalArtworkPaths(targetCtx, artwork, x, y, w, h, {
+        progress: replay ? replay.firework : 1,
+        startDust: !(replay && replay.pathIndex >= paths.length),
+        padding: displayOptions.padding
+      });
+    } else {
+      targetCtx.save();
+      paths.forEach(function (path, index) {
+        var points = path.points || [];
+        if (points.length < 2) return;
+        var progress = 1;
+        if (replay) {
+          if (index < replay.pathIndex) progress = 1;
+          else if (index === replay.pathIndex) progress = replay.progress;
+          else progress = 0;
+        }
+        if (progress <= 0 && !(replay && index === replay.pathIndex)) return;
+        var mapped = window.lightBrush.mapArtwork(points, artwork, x, y, w, h, displayOptions.padding);
+        var visible = progress >= 1 ? mapped : window.lightBrush.partialPath(mapped, progress);
+        if (visible.length >= 2) {
+          window.lightBrush.drawMoonlightPath(targetCtx, visible, {
+            color: path.color || '#F4E8C9',
+            alpha: 1,
+            width: Math.max(1.3, w * .0062),
+            glowWidth: Math.max(5, w * .026),
+            specialId: path.specialId || '',
+            endDust: progress >= 1
+          });
+        }
+        if (replay && index === replay.pathIndex && progress < 1) {
+          window.lightBrush.drawTravelStar(targetCtx, visible[visible.length - 1] || mapped[0], path.color || '#F4E8C9', replay.pulse, Math.max(1.3, w * .0062));
+        }
+      });
+      targetCtx.restore();
+    }
+    window.lightBrush.drawArtworkFireworks(targetCtx, artwork, x, y, w, h, {
+      style: style,
+      progress: replay ? (replay.pathIndex >= paths.length ? (replay.firework === undefined ? 1 : replay.firework) : 0) : 1,
+      showRising: !!(replay && replay.pathIndex >= paths.length),
+      padding: displayOptions.padding,
+      sealIcon: artwork.sealIcon || getAnimalSeal(starMapName || '').icon,
+      reducedMotion: reducedMotion,
+      animalMaster: displayOptions.animalMaster || null
+    });
+  }
+
+  function drawResultArtwork(artwork, replay) {
+    var canvas = $('resultArtwork');
+    var rect = canvas.getBoundingClientRect();
+    var dpr = window.devicePixelRatio || 1;
+    var pixelWidth = Math.round(rect.width * dpr);
+    var pixelHeight = Math.round(rect.height * dpr);
+    if (canvas.width !== pixelWidth || canvas.height !== pixelHeight) {
+      canvas.width = pixelWidth;
+      canvas.height = pixelHeight;
+    }
+    var artCtx = canvas.getContext('2d');
+    artCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    artCtx.clearRect(0, 0, rect.width, rect.height);
+    var resultIcon = artwork.sealIcon || getAnimalSeal(starMapName || '').icon;
+    var resultMaster = window.animalMasters.get(canvas, resultIcon);
+    drawArtworkPaths(artCtx, artwork, 0, 0, rect.width, rect.height, replay, {
+      animalMaster: resultMaster
+    });
+    if (!resultMaster && canvas.__masterRequestIcon !== resultIcon) {
+      canvas.__masterRequestIcon = resultIcon;
+      window.animalMasters.load(canvas, resultIcon, function (image) {
+        if (!image || currentResultArtwork !== artwork) return;
+        canvas.__masterRequestIcon = '';
+        drawResultArtwork(artwork, artworkReplayPlaying ? replay : null);
+      });
+    }
+  }
+
+  function stopArtworkReplay(redraw) {
+    if (artworkReplayRaf !== null) cancelAnimationFrame(artworkReplayRaf);
+    artworkReplayRaf = null;
+    artworkReplayPlaying = false;
+    if ($('artworkReplay')) $('artworkReplay').classList.remove('playing', 'disabled');
+    if ($('artworkReplayText')) $('artworkReplayText').textContent = artworkReplayDone ? '再看一次烟花动物' : '让星图开成花火';
+    if (redraw && currentResultArtwork) drawResultArtwork(currentResultArtwork);
+  }
+
+  function replayArtwork() {
+    if (artworkReplayPlaying || !currentResultArtwork) return;
+    if (reducedMotion) {
+      drawResultArtwork(currentResultArtwork);
+      artworkReplayDone = true;
+      $('artworkReplayText').textContent = '再看一次烟花动物';
+      $('fireworkNote').classList.add('show');
+      return;
+    }
+    var paths = currentResultArtwork.paths || [];
+    if (!paths.length) return;
+    stopArtworkReplay(false);
+    artworkReplayPlaying = true;
+    $('artworkReplay').classList.add('playing', 'disabled');
+    $('artworkReplayText').textContent = '星光正在回家';
+    $('fireworkNote').classList.remove('show');
+    var startedAt = performance.now();
+    var intro = 220, drawTime = 520, pathSpan = 600, afterglow = 6000;
+    var finishAt = intro + paths.length * pathSpan + afterglow;
+    var fireworkAnnounced = false;
+    function frame(now) {
+      var elapsed = now - startedAt;
+      if (elapsed < intro) {
+        drawResultArtwork(currentResultArtwork, { pathIndex:0, progress:0, pulse:0 });
+      } else {
+        var pathTime = elapsed - intro;
+        var pathIndex = Math.floor(pathTime / pathSpan);
+        if (pathIndex < paths.length) {
+          var local = pathTime - pathIndex * pathSpan;
+          drawResultArtwork(currentResultArtwork, {
+            pathIndex:pathIndex,
+            progress:Math.max(0, Math.min(1, local / drawTime)),
+            pulse:Math.sin(elapsed / 115)
+          });
+        } else {
+          var glowTime = elapsed - intro - paths.length * pathSpan;
+          if (!fireworkAnnounced && glowTime >= afterglow * .20) {
+            fireworkAnnounced = true;
+            $('artworkReplayText').textContent = '花火正在变成今晚的小动物';
+          }
+          drawResultArtwork(currentResultArtwork, {
+            pathIndex:paths.length,
+            progress:1,
+            pulse:Math.sin(Math.min(1, glowTime / afterglow) * Math.PI),
+            finish:Math.min(1, glowTime / 720),
+            firework:Math.max(0, Math.min(1, glowTime / afterglow))
+          });
+        }
+      }
+      if (elapsed >= finishAt) {
+        artworkReplayRaf = null;
+        artworkReplayPlaying = false;
+        artworkReplayDone = true;
+        drawResultArtwork(currentResultArtwork);
+        $('artworkReplay').classList.remove('playing', 'disabled');
+        $('artworkReplayText').textContent = '再看一次烟花动物';
+        $('fireworkNote').classList.add('show');
+        return;
+      }
+      artworkReplayRaf = requestAnimationFrame(frame);
+    }
+    artworkReplayRaf = requestAnimationFrame(frame);
+  }
+
+  // ---- 交互 ----
+  function moveBasket(clientX) {
+    if (!engine) return;
+    engine.setBasketX(clientX - cv.getBoundingClientRect().left);
+  }
+  function canvasPoint(e) {
+    var rect = cv.getBoundingClientRect();
+    return { x: e.clientX - rect.left, y: e.clientY - rect.top };
+  }
+  cv.addEventListener('pointerdown', function (e) {
+    if (!engine) return;
+    if (engine.mode === 'path') {
+      var p = canvasPoint(e);
+      pathDrawing = engine.beginLightPath(p.x, p.y);
+      if (pathDrawing && cv.setPointerCapture) cv.setPointerCapture(e.pointerId);
+    } else {
+      moveBasket(e.clientX);
+    }
+  });
+  cv.addEventListener('pointermove', function (e) {
+    if (!engine) return;
+    if (engine.mode === 'path') {
+      if (!pathDrawing) return;
+      var p = canvasPoint(e);
+      engine.extendLightPath(p.x, p.y);
+    } else {
+      moveBasket(e.clientX);
+    }
+  });
+  function endCanvasPath(e) {
+    if (!engine || engine.mode !== 'path' || !pathDrawing) return;
+    if (e) {
+      var p = canvasPoint(e);
+      engine.extendLightPath(p.x, p.y);
+    }
+    pathDrawing = false;
+    engine.endLightPath();
+  }
+  cv.addEventListener('pointerup', endCanvasPath);
+  cv.addEventListener('pointercancel', endCanvasPath);
+  mapCv.addEventListener('pointerdown', function (e) { mapDragging = true; connectMapPoint(e.clientX, e.clientY); });
+  mapCv.addEventListener('pointermove', function (e) { if (mapDragging) connectMapPoint(e.clientX, e.clientY); });
+  mapCv.addEventListener('pointerup', function () { mapDragging = false; });
+  mapCv.addEventListener('pointercancel', function () { mapDragging = false; });
+  $('mapFinish').onclick = finishStarMap;
+  $('mapKeepName').onclick = function () { beginMapBreath(STAR_MAP_NAMES[mapNameIndex]); };
+  $('mapSkipName').onclick = function () { beginMapBreath(''); };
+  $('mapOpenCustom').onclick = function () {
+    $('mapNameActions').style.display = 'none';
+    $('mapCustom').style.display = 'flex';
+    $('mapCustomInput').value = '';
+    $('mapCustomError').textContent = '';
+    $('mapCustomInput').focus();
+  };
+  $('mapCustomInput').oninput = function () { $('mapCustomError').textContent = ''; };
+  $('mapCustomInput').onkeydown = function (e) { if (e.key === 'Enter') submitMapCustomName(); };
+  $('mapCustomSubmit').onclick = submitMapCustomName;
+
+  // ---- 交互绑定 ----
+  function resetHeroEntry() {
+    heroEnteringPreview = false;
+    clearTimeout(heroEntryTimer);
+    $('previewHero').classList.remove('is-entering');
+    $('btnStart').classList.remove('is-entering');
+    $('heroTap').textContent = '轻触星光，开始今晚的作品';
+    $('homeActionTitle').textContent = '牵星入夜';
+  }
+  function openArtworkFlow() {
+    if (heroEnteringPreview) return;
+    heroEnteringPreview = true;
+    targetMode = 'game';
+    $('previewHero').classList.add('is-entering');
+    $('btnStart').classList.add('is-entering');
+    $('heroTap').textContent = '第一笔，正在亮起';
+    $('homeActionTitle').textContent = '今晚第一笔正在亮起';
+    heroEntryTimer = setTimeout(function () { show('scrMood'); }, reducedMotion ? 90 : 680);
+  }
+  $('btnStart').onclick = openArtworkFlow;
+  $('btnMotionHome').onclick = toggleMotionPreference;
+  $('btnMotionResult').onclick = toggleMotionPreference;
+  $('btnMotionGame').onclick = toggleMotionPreference;
+  $('btnResultDetails').onclick = function () {
+    var open = $('resultDetails').classList.toggle('show');
+    $('btnResultDetails').textContent = open ? '收起作品信息⌃' : '作品信息与管理⌄';
+  };
+  $('moonEntry').onclick = openArtworkFlow;
+  $('btnBreathe').onclick = function () { targetMode = 'breathe'; show('scrMood'); };
+  $('btnHelp').onclick = function () { show('scrHelp'); };
+  $('helpBack').onclick = function () { show('scrStart'); };
+  $('btnCallPreview').onclick = function () {
+    if (window.confirm('是否拨打全国统一心理援助热线 12356？')) window.location.href = 'tel:12356';
+  };
+  $('btnDiaryTip').onclick = function () { renderPreviewDiary(); show('scrDiary'); };
+  $('diaryBack').onclick = function () { show('scrStart'); };
+  $('diaryCreate').onclick = function () { targetMode = 'game'; show('scrMood'); };
+  $('diaryRestore').onclick = function () {
+    var restored = restorePreviewArtwork();
+    if (!restored) return;
+    showToast('最近删除的作品已经回来了', 2200);
+    renderPreviewDiary();
+    refreshHomeWorks();
+  };
+  $('btnEncounters').onclick = function () { renderEncounterBook(); show('scrEncounters'); };
+  $('resSpecial').onclick = function () { closeSlip(); renderEncounterBook(); show('scrEncounters'); };
+  $('encounterBack').onclick = function () { show('scrStart'); };
+  $('encounterCatch').onclick = function () { targetMode = 'game'; show('scrMood'); };
+  $('btnAgain').onclick = function () {
+    if (!window.confirm('现在的作品会先好好保留。新作品完成后，会替换今晚这一幅。')) return;
+    previewReplaceRecord = currentResultRecord ? { id:currentResultRecord.id, timestamp:currentResultRecord.timestamp, artworkNumber:currentResultRecord.artworkNumber } : null;
+    stopArtworkReplay(false); targetMode = 'game'; show('scrMood');
+  };
+  $('btnQuit').onclick = function () {
+    if (!engine) return;
+    if (engine.mode === 'breathe') {
+      cancelAnimationFrame(raf); stopAmbient(); engine = null;
+      $('modeLabel').style.display = 'none';
+      $('gameLayer').classList.remove('gentle-flow');
+      show('scrStart');
+    } else {
+      engine.finishNow();
+    }
+  };
+  $('pauseWhisper').onclick = function () {
+    hideWhisper();
+    clearTimeout(whisperTimer);
+    if (engine) engine.startBreathingPause();
+  };
+  $('btnGoodnight').onclick = function () { stopArtworkReplay(false); $('goodnight').classList.add('show'); };
+  function returnToHome() {
+    resetHeroEntry();
+    stopArtworkReplay(false);
+    cancelAnimationFrame(raf);
+    stopAmbient();
+    engine = null;
+    clearTimeout(ritualTimer);
+    clearTimeout(closingTimer);
+    clearTimeout(specialReadyTimer);
+    clearTimeout(specialAutoTimer);
+    $('specialMeet').classList.remove('show');
+    $('finaleLayer').classList.remove('show');
+    $('finaleText').textContent = '';
+    hideStarMap();
+    $('breathLayer').style.display = 'none';
+    $('shareLayer').classList.remove('show');
+    $('goodnight').classList.remove('show');
+    $('gameLayer').classList.remove('gentle-flow');
+    refreshHomeWorks();
+    show('scrStart');
+  }
+  $('btnResultHome').onclick = returnToHome;
+  $('btnResultRename').onclick = function () {
+    if (!currentResultRecord) return;
+    var title = window.prompt('给这幅星空重新取名（1–12个字）', currentResultRecord.starMapName || '');
+    if (title === null) return;
+    title = title.replace(/\s+/g, ' ').trim().slice(0, 12);
+    if (!title) return;
+    var updated = renamePreviewArtwork(currentResultRecord.id, title);
+    if (!updated) return;
+    currentResultRecord = Object.assign({}, currentResultRecord, updated);
+    currentResultArtwork = currentResultRecord.pathArtwork || currentResultArtwork;
+    starMapName = title;
+    $('resultArtworkNameText').textContent = title;
+    var renamedSeal = getAnimalSeal(title);
+    $('sealName').textContent = renamedSeal.name + '星印';
+    requestAnimationFrame(function () {
+      drawSealDoodle(renamedSeal);
+      if (currentResultArtwork) drawResultArtwork(currentResultArtwork);
+    });
+    refreshHomeWorks();
+  };
+  $('btnResultDelete').onclick = function () {
+    if (!currentResultRecord || !window.confirm('作品会在夜空回收处保留 7 天，这期间可以找回来。')) return;
+    deletePreviewArtwork(currentResultRecord.id);
+    currentResultRecord = null;
+    stopArtworkReplay(false);
+    engine = null;
+    renderPreviewDiary();
+    refreshHomeWorks();
+    show('scrDiary');
+  };
+  $('artworkReplay').onclick = replayArtwork;
+  $('btnShare').onclick = function () {
+    stopArtworkReplay(true);
+    $('scrResult').scrollTop = 0;
+    $('shareLayer').classList.add('show');
+    $('shareTip').textContent = '海报只保留今晚的星空、作品名与星印，不展示心情选择。';
+    setTimeout(drawShareCard, 100);
+  };
+  $('shareClose').onclick = function () { $('shareLayer').classList.remove('show'); };
+  $('shareSave').onclick = saveOrSharePoster;
+
+  // ---- 分享星星卡片（与小程序 result.js 同款绘制）----
+  function drawShareCard() {
+    const canvas = $('shareCanvas');
+    const dpr = window.devicePixelRatio || 1;
+    const W = 375, H = 500;
+    canvas.width = W * dpr; canvas.height = H * dpr;
+    const ctx = canvas.getContext('2d');
+    ctx.scale(dpr, dpr);
+    if (!engine) return;
+    const r = {
+      count: engine.stats.caught, byType: engine.stats.byType,
+      namedStar: engine.stats.namedStar,
+      pathArtwork: engine.stats.pathArtwork
+    };
+    const grad = ctx.createLinearGradient(0, 0, 0, H);
+    grad.addColorStop(0, '#050817'); grad.addColorStop(.54, '#0B1026'); grad.addColorStop(1, '#12152B');
+    ctx.fillStyle = grad; ctx.fillRect(0, 0, W, H);
+
+    let seed = Number(r.pathArtwork && r.pathArtwork.fireworkSeed) || 42;
+    seed = Math.abs(seed) % 233280 || 42;
+    const rand = () => { seed = (seed * 9301 + 49297) % 233280; return seed / 233280; };
+    var posterSeal = getAnimalSeal(starMapName || '今晚的无名星空');
+    var posterIcon = (r.pathArtwork && r.pathArtwork.sealIcon) || posterSeal.icon;
+    var posterMaster = window.animalMasters.get(canvas, posterIcon);
+    if (!posterMaster && canvas.__masterRequestIcon !== posterIcon) {
+      canvas.__masterRequestIcon = posterIcon;
+      window.animalMasters.load(canvas, posterIcon, function (image) {
+        if (!image || !$('shareLayer').classList.contains('show')) return;
+        canvas.__masterRequestIcon = '';
+        drawShareCard();
+      });
+    }
+
+    if (r.pathArtwork && r.pathArtwork.paths && r.pathArtwork.paths.length) {
+      drawArtworkPaths(ctx, r.pathArtwork, 0, 0, W, 344, null, {
+        padding: .15,
+        animalMaster: posterMaster
+      });
+    } else {
+      ctx.textAlign = 'center';
+      ctx.fillStyle = '#F3EAD5'; ctx.font = '54px sans-serif';
+      ctx.fillText(String(r.count), W / 2, 178);
+    }
+
+    ctx.save();
+    for (let wash = 0; wash < 11; wash++) {
+      ctx.save();
+      ctx.translate(W / 2, H / 2);
+      ctx.rotate((rand() - .5) * .05);
+      ctx.fillStyle = wash % 3 === 0 ? 'rgba(86,103,160,.018)' : 'rgba(236,214,165,.010)';
+      ctx.fillRect(-W * .62, -H * .47 + wash * 39 + rand() * 13, W * 1.24, 5 + rand() * 13);
+      ctx.restore();
+    }
+    ctx.restore();
+    for (let grain = 0; grain < 55; grain++) {
+      ctx.fillStyle = grain % 7 === 0 ? 'rgba(229,207,147,.13)' : 'rgba(224,228,241,.055)';
+      ctx.beginPath(); ctx.arc(rand() * W, rand() * H, .18 + rand() * .42, 0, Math.PI * 2); ctx.fill();
+    }
+
+    const fade = ctx.createLinearGradient(0, 255, 0, H);
+    fade.addColorStop(0, 'rgba(7,10,25,0)');
+    fade.addColorStop(.30, 'rgba(8,11,27,.58)');
+    fade.addColorStop(.62, 'rgba(10,13,30,.94)');
+    fade.addColorStop(1, 'rgba(14,16,34,.99)');
+    ctx.fillStyle = fade; ctx.fillRect(0, 250, W, H - 250);
+
+    ctx.textAlign = 'left';
+    ctx.fillStyle = 'rgba(229,207,147,.62)'; ctx.font = '9px sans-serif';
+    var posterScene = lightBrush.getAnimalScene(posterIcon);
+    ctx.fillText('MOONLIGHT No.' + resultArtworkNumberLabel + ' · ' + posterScene.name, 25, 27);
+
+    const posterTitle = starMapName ? '《' + starMapName + '》' : '《今晚的无名星空》';
+    let titleSize = 20;
+    do {
+      ctx.font = titleSize + 'px "Songti SC",serif';
+      if (ctx.measureText(posterTitle).width <= W - 60) break;
+      titleSize -= 1;
+    } while (titleSize > 15);
+    ctx.textAlign = 'left';
+    ctx.fillStyle = 'rgba(247,239,218,.94)'; ctx.fillText(posterTitle, 30, 366);
+    ctx.fillStyle = 'rgba(239,233,217,.72)'; ctx.font = '12px "Songti SC",serif';
+    ctx.fillText('我把今晚接住的星星，', 39, 407);
+    ctx.fillText('又轻轻还给了夜空。', 51, 429);
+    ctx.strokeStyle = 'rgba(229,207,147,.16)'; ctx.lineWidth = .7;
+    ctx.beginPath(); ctx.moveTo(30, 382); ctx.bezierCurveTo(82, 380, 118, 386, 168, 383); ctx.stroke();
+
+    ctx.textAlign = 'left';
+    ctx.fillStyle = 'rgba(221,225,239,.40)'; ctx.font = '8px sans-serif';
+    ctx.fillText('月光手稿 ' + resultArtworkNumberLabel + '  ·  ' + posterScene.name + '  ·  ' + resultArtworkDateLabel, 25, 468);
+    ctx.fillStyle = 'rgba(229,207,147,.40)'; ctx.font = '8.5px sans-serif';
+    ctx.fillText('✦  星星回家啦', 25, 489);
+
+    ctx.strokeStyle = 'rgba(229,207,147,.48)'; ctx.lineWidth = .8;
+    ctx.beginPath(); ctx.arc(W - 34, 466, 17, 0, Math.PI * 2); ctx.stroke();
+    ctx.strokeStyle = 'rgba(229,207,147,.16)';
+    ctx.beginPath(); ctx.arc(W - 34, 466, 14, 0, Math.PI * 2); ctx.stroke();
+    window.animalSeal.drawAnimalDoodle(ctx, posterSeal.icon, W - 34, 463, 23, 'rgba(244,232,201,.82)');
+    ctx.textAlign = 'center'; ctx.fillStyle = 'rgba(229,207,147,.48)'; ctx.font = '6.5px sans-serif';
+    ctx.fillText(posterSeal.name, W - 34, 486);
+  }
+  function saveOrSharePoster() {
+    var canvas = $('shareCanvas');
+    if (!canvas || !canvas.toBlob) return;
+    $('shareTip').textContent = '正在准备今晚的星空…';
+    canvas.toBlob(async function (blob) {
+      if (!blob) {
+        $('shareTip').textContent = '海报生成失败，请稍后再试。';
+        return;
+      }
+      var safeTitle = (starMapName || '今晚的星空').replace(/[\\/:*?"<>|]/g, '').slice(0, 24);
+      var filename = safeTitle + '.png';
+      try {
+        var file = new File([blob], filename, { type:'image/png' });
+        if (navigator.share && navigator.canShare && navigator.canShare({ files:[file] })) {
+          await navigator.share({ files:[file], title:'星星回家啦', text:'这是我今晚牵回夜空的星星。' });
+          $('shareTip').textContent = '已经交给系统分享面板。';
+          return;
+        }
+        var url = URL.createObjectURL(blob);
+        var link = document.createElement('a');
+        link.href = url;
+        link.download = filename;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        setTimeout(function () { URL.revokeObjectURL(url); }, 3000);
+        $('shareTip').textContent = '海报已经保存；如果浏览器打开了图片，请长按存入相册。';
+      } catch (error) {
+        if (error && error.name === 'AbortError') {
+          $('shareTip').textContent = '这次先不分享也可以。';
+          return;
+        }
+        var fallbackUrl = canvas.toDataURL('image/png');
+        var opened = window.open(fallbackUrl, '_blank');
+        $('shareTip').textContent = opened ? '请长按新页面里的海报，保存到照片。' : '浏览器阻止了保存，请允许弹出窗口后再试。';
+      }
+    }, 'image/png');
+  }
+  function roundRect(ctx, x, y, w, h, r) {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.arcTo(x + w, y, x + w, y + h, r);
+    ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r);
+    ctx.arcTo(x, y, x + w, y, r);
+    ctx.closePath();
+  }
+  function wrapText(ctx, text, cx, y, maxWidth, lineHeight) {
+    let line = '', yy = y;
+    for (let i = 0; i < text.length; i++) {
+      const test = line + text[i];
+      if (ctx.measureText(test).width > maxWidth && line) {
+        ctx.fillText(line, cx, yy);
+        line = text[i]; yy += lineHeight;
+      } else line = test;
+    }
+    if (line) ctx.fillText(line, cx, yy);
+  }
+  $('gnBack').onclick = function () {
+    returnToHome();
+  };
+  function leaveBreatheGoodnight() {
+    $('goodnightBreathe').classList.remove('show');
+    $('modeLabel').style.display = 'none';
+    breatheContinuation = false;
+    BREATHE_DURATION = qs.get('t') ? DURATION : 180;
+    $('breatheTitle').textContent = '安静呼吸 · 3 分钟';
+    show('scrStart');
+  }
+  $('gnBreatheBack').onclick = leaveBreatheGoodnight;
+  $('gnBreatheHome').onclick = leaveBreatheGoodnight;
+  $('btnBreatheMore').onclick = function () {
+    $('goodnightBreathe').classList.remove('show');
+    breatheContinuation = true;
+    BREATHE_DURATION = 120;
+    startBreathe(currentMood);
+  };
+  $('btnSound').onclick = function () {
+    soundOn = !soundOn;
+    localStorage.setItem('soundOn', soundOn ? '1' : '0');
+    updateFeedbackIcons();
+    if (soundOn) playAmbient(); else stopAmbient();
+  };
+  $('btnVibrate').onclick = function () {
+    vibrateOn = !vibrateOn;
+    localStorage.setItem('vibrateOn', vibrateOn ? '1' : '0');
+    updateFeedbackIcons();
+    if (vibrateOn && navigator.vibrate) navigator.vibrate(12);
+  };
+  updateFeedbackIcons();
+  if (!navigator.vibrate) $('btnVibrate').style.display = 'none';
+
+  window.addEventListener('resize', fitCanvas);
+  window.addEventListener('orientationchange', function () { setTimeout(fitCanvas, 180); });
+  if (window.visualViewport) window.visualViewport.addEventListener('resize', fitCanvas);
+  document.addEventListener('visibilitychange', function () {
+    if (document.hidden) {
+      if (ambAudio) ambAudio.pause();
+      return;
+    }
+    fitCanvas();
+    if (soundOn && engine) playAmbient();
+  });
+  [
+    'btnStart','moonEntry','btnBreathe','btnDiaryTip','btnEncounters','btnMotionHome','btnHelp',
+    'helpBack','btnCallPreview','diaryCreate','diaryRestore','diaryBack','encounterCatch','encounterBack',
+    'btnQuit','btnSound','btnVibrate','btnMotionGame','pauseWhisper','mapFinish','mapKeepName','mapSkipName','mapOpenCustom','mapCustomSubmit',
+    'btnGoodnight','btnShare','shareSave','shareClose','btnResultDetails','btnResultRename','btnAgain',
+    'btnResultDelete','btnResultHome','artworkReplay','gnBack','gnBreatheBack','gnBreatheHome','btnBreatheMore'
+  ].forEach(function (id) {
+    var element = $(id);
+    if (!element) return;
+    element.setAttribute('role', 'button');
+    element.setAttribute('tabindex', '0');
+    element.addEventListener('keydown', function (event) {
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        element.click();
+      }
+    });
+  });
+  fitCanvas();
+
+  // ---- 开始屏：今晚真实的月相 ----
+  (function drawMoonPhase() {
+    var cv = $('moonCanvas');
+    if (!cv) return;
+    var dpr = window.devicePixelRatio || 1;
+    var W = 66, H = 66;
+    cv.width = W * dpr; cv.height = H * dpr;
+    var ctx = cv.getContext('2d');
+    ctx.scale(dpr, dpr);
+
+    var synodic = 29.530588853;
+    var days = (Date.now() - Date.UTC(2000, 0, 6, 18, 14)) / 86400000;
+    var p = ((days % synodic) + synodic) % synodic / synodic;
+    var name;
+    if (p < 0.03 || p > 0.97) name = '新月';
+    else if (p < 0.22) name = '娥眉月';
+    else if (p < 0.28) name = '上弦月';
+    else if (p < 0.47) name = '盈凸月';
+    else if (p < 0.53) name = '满月';
+    else if (p < 0.72) name = '亏凸月';
+    else if (p < 0.78) name = '下弦月';
+    else name = '残月';
+    $('moonName').textContent = '今晚 · ' + name;
+
+    var r = Math.min(W, H) / 2 - 2, cx = W / 2, cy = H / 2;
+    var waxing = p < 0.5;
+    var k = Math.cos(2 * Math.PI * p);
+    ctx.save();
+    ctx.shadowColor = 'rgba(245,233,200,.45)'; ctx.shadowBlur = 14;
+    ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2);
+    ctx.fillStyle = '#1B2148'; ctx.fill();
+    ctx.shadowBlur = 0;
+    ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.clip();
+    ctx.beginPath();
+    if (waxing) ctx.arc(cx, cy, r, -Math.PI / 2, Math.PI / 2);
+    else ctx.arc(cx, cy, r, Math.PI / 2, Math.PI * 1.5);
+    ctx.closePath(); ctx.fillStyle = '#F5E9C8'; ctx.fill();
+    ctx.beginPath();
+    ctx.ellipse(cx, cy, Math.abs(k) * r, r, 0, 0, Math.PI * 2);
+    ctx.fillStyle = ((p < 0.25) || (p >= 0.5 && p < 0.75)) ? '#1B2148' : '#F5E9C8';
+    ctx.fill();
+    ctx.restore();
+  })();
+
+  // ---- 开始屏：每日问候与作品数量 ----
+  function refreshHomeWorks() {
+    if (!window.starTexts) { setTimeout(refreshHomeWorks, 100); return; }
+    // 每日轮换的问候语（与小程序同源）
+    const greeting = starTexts.getGreetingByDate(new Date());
+    var homeRecords = getPreviewRecords();
+    var artworkCount = homeRecords.length;
+    var nextNumber = Number(nextPreviewArtworkNumber());
+    $('subGreeting').innerHTML = greeting + '<br>' + (artworkCount > 0
+      ? '今晚会是你的第 ' + nextNumber + ' 幅作品。画完，就安心放下手机。'
+      : '轻轻牵动五颗星，留下一幅只属于你的作品。');
+    $('homeEdition').textContent = '今晚第 ' + String(nextNumber).padStart(2, '0') + ' 幅';
+    $('homeDiaryLabel').textContent = artworkCount > 0 ? '星空作品集 · ' + artworkCount + ' 幅' : '星空作品集';
+    $('breatheTitle').textContent = '安静呼吸 · ' + (breatheCompleted ? '3' : '1') + ' 分钟';
+  }
+  refreshHomeWorks();
+  applyMotionPreference();
+</script>
+<script>
+  if ('serviceWorker' in navigator && location.protocol.indexOf('http') === 0) {
+    window.addEventListener('load', function () {
+      navigator.serviceWorker.register('./service-worker.js').catch(function () {});
+    });
+  }
+</script>
+</body>
+</html>

@@ -1,0 +1,26 @@
+{
+  "name": "星星回家啦 · 今晚的星空",
+  "short_name": "星星回家啦",
+  "description": "牵一颗星回到夜空，留下一幅只属于今晚的水粉星空。",
+  "lang": "zh-CN",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#050817",
+  "theme_color": "#071128",
+  "icons": [
+    {
+      "src": "./assets/app-icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "./assets/app-icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
